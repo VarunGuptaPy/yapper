@@ -439,6 +439,136 @@ void main() {
       );
     });
 
+    group('reading the transcript file', () {
+      /// Serves the transcript body exactly as the storage host would.
+      ResponseBody Function(RecordedRequest) storageServing(
+        String body, {
+        String? contentType,
+      }) =>
+          (req) => req.method == 'GET'
+              ? rawResponse(body, contentType: contentType)
+              : emptyResponse(status: 201);
+
+      const transcriptJson =
+          '{"request_id":"r","transcript":"ek lamba ramble tha",'
+          '"language_code":"hi-IN"}';
+
+      test('parses JSON served as application/octet-stream', () async {
+        // Azure labels an uploaded blob octet-stream, so Dio will not decode
+        // it for us. This is the case that broke on a real recording.
+        final built = buildService(
+          apiHandler: batchRouter(),
+          storageHandler: storageServing(
+            transcriptJson,
+            contentType: 'application/octet-stream',
+          ),
+        );
+
+        final transcript = await built.service
+            .transcribe(audio, duration: const Duration(minutes: 3));
+        expect(transcript.text, 'ek lamba ramble tha');
+        expect(transcript.languageCode, 'hi-IN');
+      });
+
+      test('parses JSON served as text/plain', () async {
+        final built = buildService(
+          apiHandler: batchRouter(),
+          storageHandler:
+              storageServing(transcriptJson, contentType: 'text/plain'),
+        );
+        final transcript = await built.service
+            .transcribe(audio, duration: const Duration(minutes: 3));
+        expect(transcript.text, 'ek lamba ramble tha');
+      });
+
+      test('parses JSON served with no content type at all', () async {
+        final built = buildService(
+          apiHandler: batchRouter(),
+          storageHandler: storageServing(transcriptJson),
+        );
+        final transcript = await built.service
+            .transcribe(audio, duration: const Duration(minutes: 3));
+        expect(transcript.text, 'ek lamba ramble tha');
+      });
+
+      test('tolerates a UTF-8 BOM', () async {
+        final built = buildService(
+          apiHandler: batchRouter(),
+          storageHandler: storageServing('\uFEFF$transcriptJson'),
+        );
+        final transcript = await built.service
+            .transcribe(audio, duration: const Duration(minutes: 3));
+        expect(transcript.text, 'ek lamba ramble tha');
+      });
+
+      test('names the storage error when the link is rejected', () async {
+        final built = buildService(
+          apiHandler: batchRouter(),
+          storageHandler: storageServing(
+            '<?xml version="1.0" encoding="utf-8"?><Error>'
+            '<Code>AuthenticationFailed</Code>'
+            '<Message>Signature did not match.</Message></Error>',
+            contentType: 'application/xml',
+          ),
+        );
+
+        await expectLater(
+          built.service.transcribe(audio, duration: const Duration(minutes: 3)),
+          throwsA(isA<ApiException>().having(
+            (e) => e.message,
+            'message',
+            allOf(contains('AuthenticationFailed'), contains('Retry')),
+          )),
+        );
+      });
+
+      test('reports an empty transcript file clearly', () async {
+        final built = buildService(
+          apiHandler: batchRouter(),
+          storageHandler: storageServing('   '),
+        );
+
+        await expectLater(
+          built.service.transcribe(audio, duration: const Duration(minutes: 3)),
+          throwsA(isA<ApiException>()
+              .having((e) => e.message, 'message', contains('empty'))),
+        );
+      });
+
+      test('reports unreadable content with its content type', () async {
+        final built = buildService(
+          apiHandler: batchRouter(),
+          storageHandler: storageServing(
+            'not json at all',
+            contentType: 'application/octet-stream',
+          ),
+        );
+
+        await expectLater(
+          built.service.transcribe(audio, duration: const Duration(minutes: 3)),
+          throwsA(isA<ApiException>().having(
+            (e) => e.message,
+            'message',
+            contains('application/octet-stream'),
+          )),
+        );
+      });
+
+      test('reports a JSON file that is missing the transcript field',
+          () async {
+        final built = buildService(
+          apiHandler: batchRouter(),
+          storageHandler: storageServing('{"language_code":"hi-IN"}'),
+        );
+
+        await expectLater(
+          built.service.transcribe(audio, duration: const Duration(minutes: 3)),
+          throwsA(isA<ApiException>()
+              .having((e) => e.message, 'message', contains('transcript'))),
+        );
+      });
+    });
+
     test('an unknown duration takes the safe Batch path', () async {
       final built = buildService(
         apiHandler: batchRouter(),

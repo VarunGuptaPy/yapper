@@ -86,3 +86,18 @@ ResponseBody jsonResponse(Object data, {int status = 200}) =>
 
 ResponseBody emptyResponse({int status = 200}) =>
     ResponseBody.fromString('', status);
+
+/// A body served with an arbitrary content type — how blob storage actually
+/// hands back an uploaded file.
+ResponseBody rawResponse(
+  String body, {
+  int status = 200,
+  String? contentType,
+}) =>
+    ResponseBody.fromString(
+      body,
+      status,
+      headers: {
+        if (contentType != null) Headers.contentTypeHeader: [contentType],
+      },
+    );

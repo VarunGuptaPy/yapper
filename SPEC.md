@@ -294,9 +294,27 @@ Batch limits: 20 files per job, 2 h per file. Diarization is Batch-only; Yap doe
 | D26 | Merge keeps the union of both tag lists locally | The merge prompt asks the model to merge tags, but a dropped tag is silent data loss, so the floor is enforced in code regardless of what comes back. |
 | D27 | The agent's final round is forced without tools | After 5 tool rounds it asks once more with `tools` omitted, so a looping model must answer from what it gathered instead of returning an empty turn. |
 
+### 14.6b Bug fixed on device: "Transcript file was not JSON"
+
+Long recordings (the Batch path) failed at the final download step. Blob storage
+serves the uploaded output file as `application/octet-stream`, and Dio decodes a
+response body into a Map **only when the content type says JSON** — otherwise
+`response.data` is a `String`, so the `is Map` check rejected a perfectly good
+transcript.
+
+Fix: the transcript download now requests `ResponseType.plain` and decodes the
+body itself, accepting a String, raw bytes, or an already-decoded Map, and
+stripping a UTF-8 BOM. It also distinguishes the other failure modes instead of
+lumping them together — an XML `<Error>` document from storage (an expired or
+rejected SAS link) is reported with its `<Code>`, and an empty or unreadable
+file names the content type it was served as.
+
+`test/services/dio_contenttype_probe_test.dart` pins the underlying Dio
+behaviour so this cannot silently regress.
+
 ### 14.7 Status
 
-Phases 1, 2 and 3 complete. `flutter analyze` is clean, 231 tests pass, and
+Phases 1, 2 and 3 complete. `flutter analyze` is clean, 242 tests pass, and
 `flutter build apk --debug` succeeds.
 
 Remaining: Phase 4 (backup and restore) and Phase 5 (polish — offline queue

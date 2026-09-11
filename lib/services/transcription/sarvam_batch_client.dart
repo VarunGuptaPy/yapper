@@ -1,3 +1,4 @@
+import 'dart:convert';
 import 'dart:io';
 
 import 'package:dio/dio.dart';
@@ -213,26 +214,85 @@ class SarvamBatchClient {
   }
 
   Future<Transcript> _fetchTranscript(String url) async {
+    final Response<dynamic> res;
     try {
-      final res = await http.storage.get<dynamic>(url);
-      final data = res.data;
-      final map = data is Map<String, dynamic>
-          ? data
-          : throw const ApiException('Transcript file was not JSON.');
-
-      final text = map['transcript'];
-      if (text is! String) {
-        throw const ApiException('Transcript file had no "transcript" field.');
-      }
-      return Transcript(
-        text: text.trim(),
-        languageCode: map['language_code'] as String?,
-        requestId: map['request_id'] as String?,
+      // Fetch the raw body rather than letting Dio decide. Blob storage serves
+      // the output file as application/octet-stream, and Dio only auto-decodes
+      // JSON when the content type says so — otherwise `data` arrives as a
+      // String and a naive `is Map` check fails on a perfectly good transcript.
+      res = await http.storage.get<dynamic>(
+        url,
+        options: Options(responseType: ResponseType.plain),
       );
     } on DioException catch (e) {
       throw mapSarvamError(e, 'Downloading the transcript');
     }
+
+    final map = _decodeTranscript(
+      res.data,
+      res.headers.value(Headers.contentTypeHeader),
+    );
+
+    final text = map['transcript'];
+    if (text is! String) {
+      throw const ApiException('The transcript file had no "transcript" field.');
+    }
+    return Transcript(
+      text: text.trim(),
+      languageCode: map['language_code'] as String?,
+      requestId: map['request_id'] as String?,
+    );
   }
+
+  /// Reads the downloaded transcript regardless of how storage labelled it.
+  Map<String, dynamic> _decodeTranscript(Object? data, String? contentType) {
+    if (data is Map<String, dynamic>) return data;
+
+    final raw = switch (data) {
+      String s => s,
+      List<int> bytes => utf8.decode(bytes, allowMalformed: true),
+      _ => null,
+    };
+    if (raw == null) {
+      throw const ApiException(
+        'The transcript download returned no readable body.',
+      );
+    }
+
+    // A UTF-8 BOM is legal in the file but not accepted by jsonDecode.
+    final cleaned = raw.replaceFirst('\uFEFF', '').trim();
+    if (cleaned.isEmpty) {
+      throw const ApiException('The transcript file was empty.');
+    }
+
+    // Blob stores report a rejected or expired link as an XML error document,
+    // which is worth naming rather than calling "not JSON".
+    if (cleaned.startsWith('<')) {
+      final code = _xmlErrorCode(cleaned);
+      throw ApiException(
+        'Storage rejected the transcript link'
+        '${code == null ? '' : ' ($code)'}. Tap Retry.',
+      );
+    }
+
+    final Object? decoded;
+    try {
+      decoded = jsonDecode(cleaned);
+    } on FormatException {
+      throw ApiException(
+        'The transcript file could not be read'
+        '${contentType == null ? '' : ', served as $contentType'}.',
+      );
+    }
+
+    if (decoded is! Map<String, dynamic>) {
+      throw const ApiException('The transcript file was not a JSON object.');
+    }
+    return decoded;
+  }
+
+  String? _xmlErrorCode(String body) =>
+      RegExp(r'<Code>([^<]+)</Code>').firstMatch(body)?.group(1);
 
   /// Both `upload_urls` and `download_urls` are maps of filename -> {file_url}.
   /// The key is matched leniently because Sarvam has been known to return the
