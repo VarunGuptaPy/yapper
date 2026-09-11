@@ -6,3 +6,6 @@
 tags:
   preview:
     skip: "run explicitly with --tags preview"
+  # Writes a real .yapbackup to /tmp for on-device restore testing.
+  fixture:
+    skip: "run explicitly with --tags fixture"

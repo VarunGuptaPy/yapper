@@ -62,6 +62,7 @@ dependencies:
   archive: ^4.2.0
   share_plus: ^13.3.0
   file_picker: ^12.3.0
+  sqlite3: ^3.5.2
 
 dev_dependencies:
   flutter_test:

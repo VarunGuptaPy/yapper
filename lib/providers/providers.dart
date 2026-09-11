@@ -1,5 +1,6 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../core/log.dart';
 import '../data/db/connection.dart';
 import '../data/db/database.dart';
 import '../data/models/enums.dart';
@@ -12,6 +13,7 @@ import '../pipeline/pipeline_resumer.dart';
 import '../search/embedding_indexer.dart';
 import '../search/hybrid_search.dart';
 import '../services/audio/recorder_service.dart';
+import '../services/backup/backup_service.dart';
 import '../services/chat/chat_agent.dart';
 import '../services/chat/chat_tools.dart';
 import '../services/connectivity_service.dart';
@@ -33,7 +35,16 @@ import '../services/unconfigured_services.dart';
 
 final appDatabaseProvider = Provider<AppDatabase>((ref) {
   final db = openAppDatabase();
-  ref.onDispose(db.close);
+  ref.onDispose(() async {
+    // Restore closes the database itself before swapping the file underneath
+    // it, then invalidates this provider to reopen. Closing an already-closed
+    // connection is not an error worth surfacing.
+    try {
+      await db.close();
+    } catch (e) {
+      logD('Database', 'close on dispose: $e');
+    }
+  });
   return db;
 });
 
@@ -117,6 +128,10 @@ final llmServiceProvider = Provider<LlmService>((ref) {
 
 final structuringServiceProvider = Provider<StructuringService>(
   (ref) => StructuringService(ref.watch(llmServiceProvider)),
+);
+
+final backupServiceProvider = Provider<BackupService>(
+  (ref) => BackupService(database: ref.watch(appDatabaseProvider)),
 );
 
 final mergeServiceProvider = Provider<MergeService>(

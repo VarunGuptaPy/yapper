@@ -7,6 +7,7 @@ import '../../services/llm/openai_compatible_llm_service.dart';
 import '../../search/embedding_indexer.dart';
 import '../../services/embedding/openai_compatible_embedding_service.dart';
 import '../../services/settings/settings_model.dart';
+import 'backup_section.dart';
 
 class SettingsPage extends ConsumerStatefulWidget {
   const SettingsPage({super.key});
@@ -359,6 +360,9 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
                 const SizedBox(height: 12),
                 _ReembedStatus(progress: _reembed!),
               ],
+              const SizedBox(height: 32),
+              const _SectionTitle('Backup'),
+              const BackupSection(),
               const SizedBox(height: 32),
               Text(
                 'Keys are stored in the Android keystore and never leave this '

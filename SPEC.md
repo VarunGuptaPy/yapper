@@ -377,3 +377,58 @@ Rendering the screens and looking at them found things the unit tests did not:
    leftover markdown.
 2. **The proposal card overflowed** on a long note title: the `Update "<title>"`
    header row had no `Flexible`.
+
+---
+
+## 16. Phase 4 — Backup and restore
+
+Built after the owner asked what happens on a reinstall. The answer was that
+everything is lost: the database, the recordings and the keystore entries all
+live in app-private storage, and D15 had already turned Android's own backup
+off. Phase 4 is the only way data leaves the phone.
+
+### 16.1 Scope change
+
+**Notes and database only — no audio.** The owner asked for this explicitly,
+and it is the right split: recordings are the overwhelming bulk of the bytes
+and the notes are what carry the meaning. The format keeps room to add audio
+later without a version bump.
+
+### 16.2 The file
+
+A `.yapbackup` is a plaintext header followed by AES-256-GCM ciphertext and its
+MAC. The header is readable JSON — magic, format version, KDF name and
+parameters, salt, nonce, cipher — so a future version can diagnose a file it
+cannot open, and so tuning the KDF never strands old backups.
+
+Inside the encrypted payload is a zip holding `manifest.json` (schema version,
+timestamp, note and capture counts, whether embeddings are included) and
+`yap.sqlite`.
+
+### 16.3 Decisions taken
+
+| # | Decision | Rationale |
+|---|----------|-----------|
+| D35 | Argon2id (64 MiB, t=3, p=1) over PBKDF2 | Benchmarked both. Argon2id's pure-Dart implementation does real memory-hard work — timing scales linearly with memory (4 MiB→34 ms, 64 MiB→511 ms on a laptop) — and being memory-hard it resists GPU guessing in a way PBKDF2 does not. The first benchmark looked wrong (more memory, less time) purely because of JIT warm-up. |
+| D36 | KDF parameters travel in the header | Hard-coding them would make every existing backup unreadable the day they are tuned. |
+| D37 | Verification uses raw `package:sqlite3`, never `AppDatabase` | **This was a real bug.** Opening an arbitrary file through drift runs the migration, which *creates* the missing tables — so any SQLite file on the phone passed verification, and restoring one would have silently replaced every note with an empty database. Verification now checks `integrity_check`, `user_version`, and that all seven Yap tables already exist, without writing anything. |
+| D38 | Restore is two-phase | `prepareRestore` decrypts, validates and stages; only `applyRestore` touches live data, after the user confirms against a summary of what the backup actually holds. |
+| D39 | The previous database is kept as `yap.sqlite.before-restore-<stamp>` | Restoring the wrong file is otherwise unrecoverable. |
+| D40 | `-wal` and `-shm` are deleted during the swap | They belong to the old database; left behind, SQLite can replay stale pages over the new file. |
+| D41 | The controller closes the database, not the service | The connection is owned by a provider, and SQLite will not let the file be replaced under an open handle. `ref.invalidate(appDatabaseProvider)` then rebuilds it and everything watching it. |
+| D42 | Embeddings excluded by default | Derived data, roughly 6 KB per note, and the dominant cost in the file. Restore offers a one-tap re-index. |
+| D43 | The database path lives in `connection.dart` | Backup has to find, copy and replace that exact file. Two independent guesses at the location is how a restore ends up writing next to the live database instead of over it. |
+
+### 16.4 What is *not* in a backup
+
+API keys. They live in the Android keystore, not the database, and keystore
+material cannot be exported. After restoring onto a new phone the notes are all
+there but Settings is empty — re-enter the three keys.
+
+### 16.5 Verified on device
+
+Export → share sheet → restore → notes present, on a Pixel emulator with the
+real drift isolate: the path unit tests cannot reach, because they use a plain
+`NativeDatabase` rather than the isolate-backed connection the app runs on.
+`test/backup/make_fixture_test.dart` (tagged `fixture`) writes a seeded
+`.yapbackup` to `/tmp` for exactly this.
