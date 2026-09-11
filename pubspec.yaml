@@ -55,6 +55,14 @@ dependencies:
 
   uuid: ^4.6.0
 
+  # Rendering LLM answers in chat (successor to the discontinued
+  # flutter_markdown).
+  flutter_markdown_plus: ^1.0.12
+  cryptography: ^2.9.0
+  archive: ^4.2.0
+  share_plus: ^13.3.0
+  file_picker: ^12.3.0
+
 dev_dependencies:
   flutter_test:
     sdk: flutter
@@ -74,11 +82,20 @@ dev_dependencies:
 
 # The following section is specific to Flutter packages.
 flutter:
-
-  # The following line ensures that the Material Icons font is
-  # included with your application, so that you can use the icons in
-  # the material Icons class.
   uses-material-design: true
+
+  assets:
+    - assets/fonts/OFL.txt
+
+  fonts:
+    # Display face for titles. Bundled rather than fetched at runtime so the
+    # app stays fully offline. Latin only — Devanagari in raw transcripts
+    # falls back to the platform font, which is what we want.
+    - family: InstrumentSerif
+      fonts:
+        - asset: assets/fonts/InstrumentSerif-Regular.ttf
+        - asset: assets/fonts/InstrumentSerif-Italic.ttf
+          style: italic
 
   # To add assets to your application, add an assets section, like this:
   # assets:

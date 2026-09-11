@@ -6,6 +6,7 @@ import '../../data/models/enums.dart';
 import '../../providers/providers.dart';
 import '../capture/note_edit_sheet.dart';
 import '../common/formatting.dart';
+import '../common/patterns.dart';
 import '../theme.dart';
 import 'source_recording_tile.dart';
 
@@ -105,57 +106,95 @@ class _NoteBody extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final theme = Theme.of(context);
-    final color = noteTypeColor(theme.colorScheme, note.type.name);
+    final color = noteTypeColor(context, note.type.name);
     final captures = ref.watch(noteCapturesProvider(note.id));
     final versions = ref.watch(noteVersionsProvider(note.id));
 
     return ListView(
-      padding: const EdgeInsets.fromLTRB(20, 8, 20, 40),
+      padding: EdgeInsets.zero,
       children: [
-        Row(
-          children: [
-            Icon(noteTypeIcon(note.type.name), size: 18, color: color),
-            const SizedBox(width: 6),
-            Text(
-              note.type.label,
-              style: theme.textTheme.labelMedium
-                  ?.copyWith(color: color, fontWeight: FontWeight.w600),
-            ),
-            const Spacer(),
-            Text(
-              'Updated ${formatRelative(note.updatedAt)}',
-              style: theme.textTheme.bodySmall
-                  ?.copyWith(color: theme.colorScheme.onSurfaceVariant),
-            ),
-          ],
-        ),
-        const SizedBox(height: 12),
-        SelectableText(note.title, style: theme.textTheme.headlineSmall),
-        const SizedBox(height: 16),
-        SelectableText(note.body, style: theme.textTheme.bodyLarge),
-        if (note.tags.isNotEmpty) ...[
-          const SizedBox(height: 20),
-          Wrap(
-            spacing: 6,
-            runSpacing: 6,
-            children: [
-              for (final tag in note.tags)
-                Chip(
-                  label: Text(tag),
-                  visualDensity: VisualDensity.compact,
-                  materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
+        PatternBackdrop(
+          pattern: YapPattern.seigaiha,
+          scale: 30,
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(20, 4, 20, 22),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  children: [
+                    Container(
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 9, vertical: 4),
+                      decoration: BoxDecoration(
+                        color: color.withValues(alpha: 0.12),
+                        borderRadius: BorderRadius.circular(8),
+                        border:
+                            Border.all(color: color.withValues(alpha: 0.35)),
+                      ),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Icon(noteTypeIcon(note.type.name),
+                              size: 14, color: color),
+                          const SizedBox(width: 5),
+                          Text(
+                            note.type.label.toUpperCase(),
+                            style: theme.textTheme.labelSmall?.copyWith(
+                              color: color,
+                              fontWeight: FontWeight.w800,
+                              letterSpacing: 0.8,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    const Spacer(),
+                    Text(
+                      'Updated ${formatRelative(note.updatedAt)}',
+                      style: theme.textTheme.bodySmall
+                          ?.copyWith(color: theme.colorScheme.outline),
+                    ),
+                  ],
                 ),
-            ],
+                const SizedBox(height: 14),
+                SelectableText(
+                  note.title,
+                  style: theme.textTheme.headlineLarge,
+                ),
+              ],
+            ),
           ),
-        ],
-        const SizedBox(height: 28),
-        _PeopleSection(note: note),
-        _SectionHeading(
-          'Source recordings',
-          trailing: captures.value?.length.toString(),
         ),
-        const SizedBox(height: 8),
-        captures.when(
+        Padding(
+          padding: const EdgeInsets.fromLTRB(20, 0, 20, 40),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              SelectableText(note.body, style: theme.textTheme.bodyLarge),
+              if (note.tags.isNotEmpty) ...[
+                const SizedBox(height: 20),
+                Wrap(
+                  spacing: 6,
+                  runSpacing: 6,
+                  children: [
+                    for (final tag in note.tags)
+                      Chip(
+                        label: Text(tag),
+                        visualDensity: VisualDensity.compact,
+                        materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                      ),
+                  ],
+                ),
+              ],
+              const SizedBox(height: 28),
+              _PeopleSection(note: note),
+              _SectionHeading(
+                'Source recordings',
+                trailing: captures.value?.length.toString(),
+              ),
+              const SizedBox(height: 8),
+              captures.when(
           loading: () => const Padding(
             padding: EdgeInsets.symmetric(vertical: 12),
             child: LinearProgressIndicator(),
@@ -177,13 +216,13 @@ class _NoteBody extends ConsumerWidget {
                   ],
                 ),
         ),
-        const SizedBox(height: 28),
-        _SectionHeading(
-          'Version history',
-          trailing: versions.value?.length.toString(),
-        ),
-        const SizedBox(height: 8),
-        versions.when(
+              const SizedBox(height: 28),
+              _SectionHeading(
+                'Version history',
+                trailing: versions.value?.length.toString(),
+              ),
+              const SizedBox(height: 8),
+              versions.when(
           loading: () => const Padding(
             padding: EdgeInsets.symmetric(vertical: 12),
             child: LinearProgressIndicator(),
@@ -198,6 +237,9 @@ class _NoteBody extends ConsumerWidget {
               : Column(
                   children: [for (final v in rows) _VersionTile(version: v)],
                 ),
+              ),
+            ],
+          ),
         ),
       ],
     );
@@ -265,15 +307,25 @@ class _SectionHeading extends StatelessWidget {
     final theme = Theme.of(context);
     return Row(
       children: [
-        Text(label, style: theme.textTheme.titleSmall),
+        Text(
+          label.toUpperCase(),
+          style: theme.textTheme.labelMedium?.copyWith(
+            color: theme.colorScheme.onSurfaceVariant,
+            letterSpacing: 1.3,
+          ),
+        ),
         if (trailing != null) ...[
-          const SizedBox(width: 6),
+          const SizedBox(width: 8),
           Text(
             trailing!,
-            style: theme.textTheme.bodySmall
-                ?.copyWith(color: theme.colorScheme.onSurfaceVariant),
+            style: theme.textTheme.labelMedium
+                ?.copyWith(color: theme.colorScheme.outline),
           ),
         ],
+        const SizedBox(width: 12),
+        Expanded(
+          child: Divider(color: theme.colorScheme.outlineVariant, height: 1),
+        ),
       ],
     );
   }

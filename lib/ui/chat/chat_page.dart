@@ -6,6 +6,8 @@ import '../../providers/chat_controller.dart';
 import '../../providers/providers.dart';
 import '../../services/chat/note_proposal.dart';
 import '../common/empty_state.dart';
+import '../common/patterns.dart';
+import 'chat_markdown.dart';
 import 'citation_chip.dart';
 import 'proposal_card.dart';
 
@@ -51,6 +53,7 @@ class _ChatPageState extends ConsumerState<ChatPage> {
     final messages = ref.watch(chatMessagesProvider);
     final chat = ref.watch(chatControllerProvider);
     final settings = ref.watch(currentSettingsProvider);
+    final theme = Theme.of(context);
 
     ref.listen(chatControllerProvider, (previous, next) {
       final error = next.error;
@@ -82,15 +85,19 @@ class _ChatPageState extends ConsumerState<ChatPage> {
               message: '$e',
             ),
             data: (rows) => rows.isEmpty
-                ? const EmptyState(
-                    icon: Icons.forum_outlined,
-                    title: 'Ask about your notes',
-                    message: 'Try "which of my connections could help with '
-                        'video editing?" or "did I ever have a movie idea?"',
+                ? const PatternBackdrop(
+                    pattern: YapPattern.kolam,
+                    scale: 34,
+                    child: EmptyState(
+                      icon: Icons.forum_outlined,
+                      title: 'Ask about your notes',
+                      message: 'Try "which of my connections could help with '
+                          'video editing?" or "did I ever have a movie idea?"',
+                    ),
                   )
                 : ListView.builder(
                     controller: _scroll,
-                    padding: const EdgeInsets.fromLTRB(12, 12, 12, 8),
+                    padding: const EdgeInsets.fromLTRB(18, 16, 18, 8),
                     itemCount: rows.length,
                     itemBuilder: (context, i) => _MessageBubble(message: rows[i]),
                   ),
@@ -111,9 +118,31 @@ class _ChatPageState extends ConsumerState<ChatPage> {
                     minLines: 1,
                     maxLines: 5,
                     textCapitalization: TextCapitalization.sentences,
-                    decoration: const InputDecoration(
+                    decoration: InputDecoration(
                       hintText: 'Ask about your notes…',
-                      border: OutlineInputBorder(),
+                      border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(22),
+                        borderSide: BorderSide(
+                          color: theme.colorScheme.outlineVariant,
+                        ),
+                      ),
+                      enabledBorder: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(22),
+                        borderSide: BorderSide(
+                          color: theme.colorScheme.outlineVariant,
+                        ),
+                      ),
+                      focusedBorder: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(22),
+                        borderSide: BorderSide(
+                          color: theme.colorScheme.primary,
+                          width: 1.6,
+                        ),
+                      ),
+                      contentPadding: const EdgeInsets.symmetric(
+                        horizontal: 18,
+                        vertical: 13,
+                      ),
                     ),
                     onSubmitted: (_) => _send(),
                   ),
@@ -140,54 +169,85 @@ class _MessageBubble extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final isUser = message.role == 'user';
     final proposal = NoteProposal.decode(message.proposal);
 
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 12),
-      child: Column(
-        crossAxisAlignment:
-            isUser ? CrossAxisAlignment.end : CrossAxisAlignment.start,
-        children: [
-          Container(
-            constraints: BoxConstraints(
-              maxWidth: MediaQuery.sizeOf(context).width * 0.82,
-            ),
-            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+    if (message.role == 'user') {
+      return Padding(
+        padding: const EdgeInsets.only(bottom: 18, left: 40),
+        child: Align(
+          alignment: Alignment.centerRight,
+          child: Container(
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 11),
             decoration: BoxDecoration(
-              color: isUser
-                  ? theme.colorScheme.primaryContainer
-                  : theme.colorScheme.surfaceContainer,
-              borderRadius: BorderRadius.circular(16),
+              color: theme.colorScheme.primaryContainer,
+              borderRadius: const BorderRadius.only(
+                topLeft: Radius.circular(16),
+                topRight: Radius.circular(16),
+                bottomLeft: Radius.circular(16),
+                bottomRight: Radius.circular(4),
+              ),
             ),
-            child: SelectableText(
+            child: Text(
               message.content,
               style: theme.textTheme.bodyMedium?.copyWith(
-                color: isUser
-                    ? theme.colorScheme.onPrimaryContainer
-                    : theme.colorScheme.onSurface,
+                color: theme.colorScheme.onPrimaryContainer,
+                height: 1.4,
               ),
             ),
           ),
-          if (message.citations.isNotEmpty) ...[
-            const SizedBox(height: 8),
-            Wrap(
-              spacing: 6,
-              runSpacing: 6,
+        ),
+      );
+    }
+
+    // An answer can run to several paragraphs. A bubble round that is a wall;
+    // an open column with a thin rule down the left reads like a margin note.
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 22),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Container(
+            width: 2,
+            margin: const EdgeInsets.only(top: 4, right: 14),
+            constraints: const BoxConstraints(minHeight: 22),
+            decoration: BoxDecoration(
+              color: theme.colorScheme.primary.withValues(alpha: 0.45),
+              borderRadius: BorderRadius.circular(1),
+            ),
+          ),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                for (var i = 0; i < message.citations.length; i++)
-                  CitationChip(noteId: message.citations[i], index: i + 1),
+                ChatMarkdown(
+                  content: message.content,
+                  citations: message.citations,
+                ),
+                if (message.citations.isNotEmpty) ...[
+                  const SizedBox(height: 12),
+                  Wrap(
+                    spacing: 6,
+                    runSpacing: 6,
+                    children: [
+                      for (var i = 0; i < message.citations.length; i++)
+                        CitationChip(
+                          noteId: message.citations[i],
+                          index: i + 1,
+                        ),
+                    ],
+                  ),
+                ],
+                if (proposal != null) ...[
+                  const SizedBox(height: 14),
+                  ProposalCard(
+                    messageId: message.id,
+                    proposal: proposal,
+                    status: ProposalStatus.fromWire(message.proposalStatus),
+                  ),
+                ],
               ],
             ),
-          ],
-          if (proposal != null) ...[
-            const SizedBox(height: 10),
-            ProposalCard(
-              messageId: message.id,
-              proposal: proposal,
-              status: ProposalStatus.fromWire(message.proposalStatus),
-            ),
-          ],
+          ),
         ],
       ),
     );

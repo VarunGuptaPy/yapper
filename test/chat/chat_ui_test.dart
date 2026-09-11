@@ -7,6 +7,7 @@ import 'package:yapapp/providers/providers.dart';
 import 'package:yapapp/services/chat/note_proposal.dart';
 import 'package:yapapp/services/settings/settings_model.dart';
 import 'package:yapapp/ui/chat/chat_page.dart';
+import 'package:yapapp/ui/chat/citation_chip.dart';
 import 'package:yapapp/ui/notes/notes_page.dart';
 import 'package:yapapp/search/hybrid_search.dart';
 
@@ -102,7 +103,9 @@ void main() {
       ]));
       await tester.pumpAndSettle();
 
-      expect(find.widgetWithText(ActionChip, '[1] Ritu Sharma'), findsOneWidget);
+      expect(find.byType(CitationChip), findsOneWidget);
+      expect(find.text('Ritu Sharma'), findsWidgets);
+      expect(find.text('1'), findsOneWidget, reason: 'the citation number');
     });
 
     testWidgets('opens the note when a citation is tapped', (tester) async {
@@ -111,10 +114,10 @@ void main() {
       ]));
       await tester.pumpAndSettle();
 
-      await tester.tap(find.widgetWithText(ActionChip, '[1] Ritu Sharma'));
+      await tester.tap(find.byType(CitationChip));
       await tester.pumpAndSettle();
 
-      expect(find.text('Source recordings'), findsOneWidget);
+      expect(find.text('SOURCE RECORDINGS'), findsOneWidget);
     });
 
     testWidgets('warns when the LLM is not configured', (tester) async {

@@ -1,17 +1,20 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import '../../data/db/database.dart';
-import '../../data/models/enums.dart';
-import '../../pipeline/capture_pipeline.dart';
 import '../../providers/capture_controller.dart';
 import '../../providers/providers.dart';
-import '../common/empty_state.dart';
 import '../common/formatting.dart';
+import '../common/patterns.dart';
+import '../theme.dart';
+import 'lotus_motif.dart';
 import 'mic_button.dart';
-import 'review_sheet.dart';
-import 'status_chip.dart';
+import 'recordings_page.dart';
+import 'voice_waveform.dart';
 
+/// The recording screen, and nothing else.
+///
+/// Everything already recorded lives on [RecordingsPage]; this page is for the
+/// thought you are having right now, so it stays a single uncluttered target.
 class CapturePage extends ConsumerWidget {
   const CapturePage({super.key});
 
@@ -19,8 +22,8 @@ class CapturePage extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final recording = ref.watch(captureControllerProvider);
     final controller = ref.read(captureControllerProvider.notifier);
-    final captures = ref.watch(recentCapturesProvider);
     final settings = ref.watch(currentSettingsProvider);
+    final theme = Theme.of(context);
 
     ref.listen(captureControllerProvider, (previous, next) {
       final error = next.error;
@@ -31,63 +34,116 @@ class CapturePage extends ConsumerWidget {
       }
     });
 
-    return Column(
-      children: [
-        const SizedBox(height: 24),
-        MicButton(
-          isRecording: recording.isRecording,
-          level: recording.level,
-          onPressed: controller.toggle,
-        ),
-        const SizedBox(height: 16),
-        Text(
-          formatDuration(recording.elapsed),
-          style: Theme.of(context).textTheme.headlineMedium?.copyWith(
-                fontFeatures: const [FontFeature.tabularFigures()],
+    return _CaptureStage(
+      recording: recording.isRecording,
+      child: SafeArea(
+        top: false,
+        child: LayoutBuilder(
+          builder: (context, constraints) {
+            // Short screens shrink the lotus rather than clipping it, and the
+            // whole column scrolls if even that is not enough.
+            final compact = constraints.maxHeight < 640;
+            final lotus = compact ? 224.0 : 300.0;
+
+            return SingleChildScrollView(
+              child: ConstrainedBox(
+                constraints: BoxConstraints(minHeight: constraints.maxHeight),
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    SizedBox(height: compact ? 8 : 20),
+                    VoiceWaveform(
+                      level: recording.level,
+                      active: recording.isRecording,
+                      height: compact ? 64 : 96,
+                    ),
+                    SizedBox(height: compact ? 6 : 14),
+                    Text(
+                      formatDuration(recording.elapsed),
+                      style: theme.textTheme.displayMedium?.copyWith(
+                        fontFeatures: const [FontFeature.tabularFigures()],
+                        color: recording.isRecording
+                            ? theme.colorScheme.secondary
+                            : theme.colorScheme.primary,
+                      ),
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      recording.isRecording
+                          ? 'Listening — tap to stop'
+                          : 'Tap to start talking',
+                      style: theme.textTheme.bodyLarge
+                          ?.copyWith(color: theme.colorScheme.onSurfaceVariant),
+                    ),
+                    SizedBox(height: compact ? 8 : 18),
+                    Stack(
+                      alignment: Alignment.center,
+                      children: [
+                        LotusMotif(
+                          level: recording.level,
+                          active: recording.isRecording,
+                          size: lotus,
+                        ),
+                        MicButton(
+                          isRecording: recording.isRecording,
+                          level: recording.level,
+                          onPressed: controller.toggle,
+                        ),
+                      ],
+                    ),
+                    SizedBox(
+                      height: 44,
+                      child: recording.isRecording
+                          ? TextButton.icon(
+                              onPressed: controller.cancel,
+                              icon: const Icon(Icons.close_rounded, size: 18),
+                              label: const Text('Discard'),
+                            )
+                          : null,
+                    ),
+                    SizedBox(height: compact ? 8 : 20),
+                    if (!settings.isCaptureReady)
+                      Padding(
+                        padding: const EdgeInsets.only(bottom: 14),
+                        child:
+                            _SetupBanner(message: settings.missingSetupMessage!),
+                      ),
+                    const PendingWorkPill(),
+                    const SizedBox(height: 20),
+                  ],
+                ),
               ),
+            );
+          },
         ),
-        Text(
-          recording.isRecording ? 'Listening — tap to stop' : 'Tap to start talking',
-          style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                color: Theme.of(context).colorScheme.onSurfaceVariant,
-              ),
-        ),
-        if (recording.isRecording) ...[
-          const SizedBox(height: 4),
-          TextButton(
-            onPressed: controller.cancel,
-            child: const Text('Discard'),
-          ),
-        ],
-        if (!settings.isCaptureReady) ...[
-          const SizedBox(height: 12),
-          _SetupBanner(message: settings.missingSetupMessage!),
-        ],
-        const SizedBox(height: 20),
-        const Divider(height: 1),
-        Expanded(
-          child: captures.when(
-            loading: () => const Center(child: CircularProgressIndicator()),
-            error: (e, _) => EmptyState(
-              icon: Icons.error_outline,
-              title: 'Could not load your recordings',
-              message: '$e',
-            ),
-            data: (rows) => rows.isEmpty
-                ? const EmptyState(
-                    icon: Icons.graphic_eq,
-                    title: 'No recordings yet',
-                    message: 'Tap the mic and ramble. Yap sorts it out after.',
-                  )
-                : ListView.separated(
-                    padding: const EdgeInsets.symmetric(vertical: 8),
-                    itemCount: rows.length,
-                    separatorBuilder: (_, _) => const Divider(height: 1),
-                    itemBuilder: (context, i) => _CaptureTile(capture: rows[i]),
-                  ),
-          ),
-        ),
-      ],
+      ),
+    );
+  }
+}
+
+/// The full-bleed recording surface: a tinted wash under a hemp-leaf lattice.
+/// The colour is what keeps a page with one button on it from reading as empty.
+class _CaptureStage extends StatelessWidget {
+  const _CaptureStage({required this.recording, required this.child});
+
+  final bool recording;
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context) {
+    final scheme = context.scheme;
+
+    // No background wash: a low-alpha tint over warm paper goes grey, and a
+    // gradient stop leaves a visible band across the screen. The colour lives
+    // in the lotus, the mic and the type accents instead.
+    return ColoredBox(
+      color: scheme.surface,
+      child: PatternBackdrop(
+        pattern: YapPattern.asanoha,
+        scale: 30,
+        opacity: recording ? 3.4 : 2.6,
+        child: child,
+      ),
     );
   }
 }
@@ -99,18 +155,20 @@ class _SetupBanner extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final scheme = Theme.of(context).colorScheme;
+    final scheme = context.scheme;
     return Container(
-      margin: const EdgeInsets.symmetric(horizontal: 16),
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+      margin: const EdgeInsets.symmetric(horizontal: 20),
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 11),
       decoration: BoxDecoration(
         color: scheme.tertiaryContainer,
         borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: scheme.tertiary.withValues(alpha: 0.35)),
       ),
       child: Row(
         children: [
-          Icon(Icons.info_outline, size: 18, color: scheme.onTertiaryContainer),
-          const SizedBox(width: 8),
+          Icon(Icons.info_outline_rounded,
+              size: 18, color: scheme.onTertiaryContainer),
+          const SizedBox(width: 10),
           Expanded(
             child: Text(
               message,
@@ -119,74 +177,6 @@ class _SetupBanner extends StatelessWidget {
                   .bodySmall
                   ?.copyWith(color: scheme.onTertiaryContainer),
             ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _CaptureTile extends ConsumerWidget {
-  const _CaptureTile({required this.capture});
-
-  final CaptureRow capture;
-
-  @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final theme = Theme.of(context);
-    final queued = capture.error == CapturePipeline.queuedMessage;
-    final transcript = capture.rawTranscript;
-
-    return ListTile(
-      title: Row(
-        children: [
-          CaptureStatusChip(status: capture.status, queued: queued),
-          const Spacer(),
-          Text(
-            '${formatRelative(capture.createdAt)} · '
-            '${formatDuration(Duration(milliseconds: capture.durationMs))}',
-            style: theme.textTheme.bodySmall
-                ?.copyWith(color: theme.colorScheme.onSurfaceVariant),
-          ),
-        ],
-      ),
-      subtitle: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          if (transcript != null && transcript.isNotEmpty) ...[
-            const SizedBox(height: 6),
-            Text(
-              transcript,
-              maxLines: 2,
-              overflow: TextOverflow.ellipsis,
-              style: theme.textTheme.bodyMedium,
-            ),
-          ],
-          if (capture.error != null && !queued) ...[
-            const SizedBox(height: 6),
-            Text(
-              capture.error!,
-              style: theme.textTheme.bodySmall
-                  ?.copyWith(color: theme.colorScheme.error),
-            ),
-          ],
-          const SizedBox(height: 6),
-          Row(
-            children: [
-              if (capture.status == CaptureStatus.awaitingReview)
-                FilledButton.tonal(
-                  onPressed: () => ReviewSheet.show(context, capture.id),
-                  child: const Text('Review'),
-                ),
-              if (capture.status == CaptureStatus.failed)
-                OutlinedButton.icon(
-                  icon: const Icon(Icons.refresh, size: 18),
-                  label: const Text('Retry'),
-                  onPressed: () => ref
-                      .read(captureControllerProvider.notifier)
-                      .retry(capture.id),
-                ),
-            ],
           ),
         ],
       ),

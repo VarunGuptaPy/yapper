@@ -319,3 +319,61 @@ Phases 1, 2 and 3 complete. `flutter analyze` is clean, 242 tests pass, and
 
 Remaining: Phase 4 (backup and restore) and Phase 5 (polish — offline queue
 hardening, empty/error states, on-device performance pass).
+
+---
+
+## 15. Design language
+
+Added after Phases 1–3, when the app worked but looked like a form.
+
+### 15.1 The thesis
+
+The brief was "Indian and Japanese, colourful rather than bland". The honest
+bridge between the two traditions is not decoration bolted onto a Material app,
+it is what they genuinely share:
+
+- **Indigo** is both Indian *neel* and Japanese *ai*; **vermillion** is both
+  *sindoor* and *shu*. Those two dyes carry the palette.
+- Both build **geometric lattices** — *jali* and *kumiko*, *kolam* and
+  *asanoha*.
+- The **lotus** (*padma* / *hasu*) is drawn radially in both, as a kolam is and
+  as a Japanese *mon* is.
+
+So: Japanese restraint in the layout (space, hairlines, small caps section
+rules), Indian saturation in the colour, and motifs that are real in both.
+
+### 15.2 What that became
+
+| Piece | Decision |
+|---|---|
+| Ground | Warm paper (*washi*) in light, *sumi* ink in dark — never white. |
+| Accents | Indigo, vermillion, marigold, deep teal. Each note type owns one, so a list scans by hue before you read a word. |
+| Type | `InstrumentSerif` (bundled, 70 KB, OFL) for display sizes only. Body text stays on the platform font, which also keeps Devanagari correct in raw transcripts. |
+| Lattices | `asanoha`, `kolam` and `seigaiha` painters, used as faint texture at 5–15% alpha. Louder than that and a notes app turns into a souvenir shop. |
+| Lotus | A rosette behind the mic, its outer petals shifting indigo → vermillion while recording. |
+| Waveform | See below. |
+
+### 15.3 Decisions taken
+
+| # | Decision | Rationale |
+|---|----------|-----------|
+| D28 | No large background washes | A low-alpha tint over warm paper goes grey, and a gradient stop leaves a visible band across the screen. Both were tried on device and looked dirty. Colour lives in the lotus, the mic and the type accents instead. |
+| D29 | The waveform's coloured strokes fade with actual mic energy | At rest the full-width gradient stroke read as a stray rainbow rule. It now resolves to a short centred hairline that opens outwards as you speak. |
+| D30 | The waveform's animation clock stops when idle | A 60 fps repaint on the tab the app opens to costs battery all day. It also meant `pumpAndSettle` could never settle, which is how the cost got noticed. |
+| D31 | Capture is recording-only | Past recordings moved to `RecordingsPage`, reachable from the app-bar history icon. A `PendingWorkPill` keeps "2 notes to review" visible, without which a finished transcription would sit unnoticed. |
+| D32 | Chat answers render as Markdown | Assistant text is full-width with a thin rule down the left rather than in a bubble — a bubble round several paragraphs is a wall. User turns keep a bubble. |
+| D33 | `[1]` citation markers are inline links | Rewritten to `[\[1\]](yapnote:<id>)` before rendering, so the marker is tappable in the sentence as well as in the chips underneath. |
+| D34 | Preview renders are excluded from the default suite | `test/ui/preview_test.dart` writes PNGs of populated screens for design review, but golden output depends on the fonts on the machine. `dart_test.yaml` skips the `preview` tag; run it with `--tags preview --update-goldens`. |
+
+### 15.4 Two bugs the previews caught
+
+Rendering the screens and looking at them found things the unit tests did not:
+
+1. **Citations rendered as raw markdown.** `_linkify` built its replacement with
+   a raw string, so `$_scheme` and `${citations[...]}` never interpolated and
+   every citation displayed as `[[1]]($_scheme:${citations[index - 1]})`. The
+   test passed because it asserted `contains('[1]')` — which the broken output
+   also contains. The assertion now pins the whole sentence and rejects any
+   leftover markdown.
+2. **The proposal card overflowed** on a long note title: the `Update "<title>"`
+   header row had no `Flexible`.

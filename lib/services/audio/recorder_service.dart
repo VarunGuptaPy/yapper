@@ -42,7 +42,7 @@ class RecorderService {
 
   /// Amplitude for the level meter, sampled a few times a second.
   Stream<Amplitude> amplitudeStream() =>
-      _recorder.onAmplitudeChanged(const Duration(milliseconds: 200));
+      _recorder.onAmplitudeChanged(const Duration(milliseconds: 100));
 
   /// Starts a new recording and returns the capture id its file is named after.
   Future<String> start() async {

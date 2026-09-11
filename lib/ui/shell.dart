@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../providers/providers.dart';
 import 'capture/capture_page.dart';
+import 'capture/recordings_page.dart';
 import 'chat/chat_page.dart';
 import 'notes/notes_page.dart';
 import 'settings/settings_page.dart';
@@ -37,6 +38,12 @@ class _AppShellState extends ConsumerState<AppShell> {
       appBar: AppBar(
         title: Text(_titles[_index]),
         actions: [
+          if (_index == 0)
+            IconButton(
+              icon: const Icon(Icons.history_rounded),
+              tooltip: 'Recordings',
+              onPressed: () => RecordingsPage.open(context),
+            ),
           IconButton(
             icon: const Icon(Icons.settings_outlined),
             tooltip: 'Settings',

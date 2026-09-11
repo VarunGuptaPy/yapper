@@ -66,12 +66,11 @@ class _NotesPageState extends ConsumerState<NotesPage> {
             textInputAction: TextInputAction.search,
             decoration: InputDecoration(
               hintText: 'Search your notes',
-              prefixIcon: const Icon(Icons.search),
-              border: const OutlineInputBorder(),
+              prefixIcon: const Icon(Icons.search_rounded, size: 20),
               suffixIcon: _search.text.isEmpty
                   ? null
                   : IconButton(
-                      icon: const Icon(Icons.clear),
+                      icon: const Icon(Icons.clear_rounded, size: 20),
                       onPressed: _clearSearch,
                     ),
             ),
@@ -191,6 +190,29 @@ class _FilterChip extends StatelessWidget {
       );
 }
 
+class _TinyTag extends StatelessWidget {
+  const _TinyTag({required this.label, required this.color});
+
+  final String label;
+  final Color color;
+
+  @override
+  Widget build(BuildContext context) => Container(
+        padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
+        decoration: BoxDecoration(
+          borderRadius: BorderRadius.circular(6),
+          border: Border.all(color: color.withValues(alpha: 0.35)),
+        ),
+        child: Text(
+          label,
+          style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                color: color,
+                fontWeight: FontWeight.w600,
+              ),
+        ),
+      );
+}
+
 class _NoteTile extends StatelessWidget {
   const _NoteTile({required this.note, this.semanticOnly = false});
 
@@ -200,41 +222,82 @@ class _NoteTile extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final color = noteTypeColor(theme.colorScheme, note.type.name);
+    final color = noteTypeColor(context, note.type.name);
 
-    return ListTile(
-      leading: CircleAvatar(
-        backgroundColor: color.withValues(alpha: 0.15),
-        child: Icon(noteTypeIcon(note.type.name), size: 20, color: color),
-      ),
-      title: Row(
-        children: [
-          Flexible(
-            child: Text(note.title,
-                maxLines: 1, overflow: TextOverflow.ellipsis),
-          ),
-          if (semanticOnly) ...[
-            const SizedBox(width: 6),
-            Tooltip(
-              message: 'Matched by meaning, not by wording',
-              child: Icon(Icons.auto_awesome,
-                  size: 14, color: theme.colorScheme.tertiary),
-            ),
-          ],
-        ],
-      ),
-      subtitle: Text(
-        note.body,
-        maxLines: 2,
-        overflow: TextOverflow.ellipsis,
-      ),
-      trailing: Text(
-        formatRelative(note.updatedAt),
-        style: theme.textTheme.bodySmall
-            ?.copyWith(color: theme.colorScheme.onSurfaceVariant),
-      ),
+    return InkWell(
       onTap: () => Navigator.of(context).push(
         MaterialPageRoute(builder: (_) => NoteDetailPage(noteId: note.id)),
+      ),
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(18, 14, 18, 14),
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Container(
+              width: 38,
+              height: 38,
+              decoration: BoxDecoration(
+                color: color.withValues(alpha: 0.12),
+                borderRadius: BorderRadius.circular(11),
+                border: Border.all(color: color.withValues(alpha: 0.3)),
+              ),
+              child: Icon(noteTypeIcon(note.type.name), size: 19, color: color),
+            ),
+            const SizedBox(width: 14),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    children: [
+                      Expanded(
+                        child: Text(
+                          note.title,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: theme.textTheme.titleMedium,
+                        ),
+                      ),
+                      if (semanticOnly) ...[
+                        const SizedBox(width: 6),
+                        Tooltip(
+                          message: 'Matched by meaning, not by wording',
+                          child: Icon(Icons.auto_awesome,
+                              size: 14, color: theme.colorScheme.tertiary),
+                        ),
+                      ],
+                      const SizedBox(width: 8),
+                      Text(
+                        formatRelative(note.updatedAt),
+                        style: theme.textTheme.bodySmall
+                            ?.copyWith(color: theme.colorScheme.outline),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 3),
+                  Text(
+                    note.body,
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                    style: theme.textTheme.bodyMedium
+                        ?.copyWith(color: theme.colorScheme.onSurfaceVariant),
+                  ),
+                  if (note.tags.isNotEmpty) ...[
+                    const SizedBox(height: 8),
+                    Wrap(
+                      spacing: 5,
+                      runSpacing: 4,
+                      children: [
+                        for (final tag in note.tags.take(4))
+                          _TinyTag(label: tag, color: color),
+                      ],
+                    ),
+                  ],
+                ],
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }

@@ -42,12 +42,18 @@ class ProposalCard extends ConsumerWidget {
                   color: theme.colorScheme.primary,
                 ),
                 const SizedBox(width: 6),
-                Text(
-                  isCreate
-                      ? 'New note'
-                      : 'Update "${existing?.title ?? 'a note'}"',
-                  style: theme.textTheme.labelLarge
-                      ?.copyWith(color: theme.colorScheme.primary),
+                // A note title can be long; without this the header row
+                // overflows instead of truncating.
+                Flexible(
+                  child: Text(
+                    isCreate
+                        ? 'New note'
+                        : 'Update "${existing?.title ?? 'a note'}"',
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: theme.textTheme.labelLarge
+                        ?.copyWith(color: theme.colorScheme.primary),
+                  ),
                 ),
               ],
             ),

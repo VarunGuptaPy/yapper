@@ -6,6 +6,7 @@ import 'package:yapapp/data/models/enums.dart';
 import 'package:yapapp/providers/providers.dart';
 import 'package:yapapp/services/settings/settings_model.dart';
 import 'package:yapapp/ui/capture/capture_page.dart';
+import 'package:yapapp/ui/capture/recordings_page.dart';
 import 'package:yapapp/ui/capture/note_edit_sheet.dart';
 import 'package:yapapp/ui/notes/note_detail_page.dart';
 import 'package:yapapp/ui/notes/notes_page.dart';
@@ -55,12 +56,12 @@ Widget host(Widget child) => MaterialApp(home: Scaffold(body: child));
 void main() {
   group('CapturePage', () {
     Widget capture({
-      List<CaptureRow> rows = const [],
       YapSettings settings = const YapSettings(
         sarvamApiKey: 'k',
         llmApiKey: 'k',
         llmModel: 'm',
       ),
+      List<CaptureRow> rows = const [],
     }) =>
         ProviderScope(
           overrides: [
@@ -76,8 +77,19 @@ void main() {
 
       expect(find.text('00:00'), findsOneWidget);
       expect(find.text('Tap to start talking'), findsOneWidget);
-      expect(find.byIcon(Icons.mic_rounded), findsOneWidget);
-      expect(find.text('No recordings yet'), findsOneWidget);
+      expect(find.byIcon(Icons.mic_none_rounded), findsOneWidget);
+    });
+
+    testWidgets('carries only the recording controls, not the archive',
+        (tester) async {
+      await tester.pumpWidget(capture(rows: [
+        buildCapture(status: CaptureStatus.saved, transcript: 'old thought'),
+      ]));
+      await tester.pumpAndSettle();
+
+      expect(find.text('old thought'), findsNothing,
+          reason: 'past recordings belong on the Recordings page');
+      expect(find.text('RECENT'), findsNothing);
     });
 
     testWidgets('warns when Settings is incomplete', (tester) async {
@@ -94,8 +106,66 @@ void main() {
       expect(find.textContaining('in Settings'), findsNothing);
     });
 
-    testWidgets('a capture awaiting review offers Review', (tester) async {
+    testWidgets('surfaces notes waiting to be reviewed', (tester) async {
       await tester.pumpWidget(capture(rows: [
+        buildCapture(status: CaptureStatus.awaitingReview),
+        buildCapture(id: 'c2', status: CaptureStatus.awaitingReview),
+      ]));
+      await tester.pumpAndSettle();
+
+      expect(find.text('2 notes to review'), findsOneWidget);
+    });
+
+    testWidgets('surfaces a failed recording', (tester) async {
+      await tester.pumpWidget(capture(rows: [
+        buildCapture(status: CaptureStatus.failed, error: 'Sarvam said no'),
+      ]));
+      await tester.pumpAndSettle();
+
+      expect(find.text('1 recording failed'), findsOneWidget);
+    });
+
+    testWidgets('review takes priority over a failure in the pill',
+        (tester) async {
+      await tester.pumpWidget(capture(rows: [
+        buildCapture(status: CaptureStatus.failed),
+        buildCapture(id: 'c2', status: CaptureStatus.awaitingReview),
+      ]));
+      await tester.pumpAndSettle();
+
+      expect(find.text('1 note to review'), findsOneWidget);
+      expect(find.text('1 recording failed'), findsNothing);
+    });
+
+    testWidgets('stays quiet when there is nothing pending', (tester) async {
+      await tester.pumpWidget(capture(rows: [
+        buildCapture(status: CaptureStatus.saved),
+      ]));
+      await tester.pumpAndSettle();
+
+      expect(find.byType(PendingWorkPill), findsOneWidget);
+      expect(find.textContaining('to review'), findsNothing);
+      expect(find.textContaining('failed'), findsNothing);
+    });
+  });
+
+  group('RecordingsPage', () {
+    Widget recordings(List<CaptureRow> rows) => ProviderScope(
+          overrides: [
+            recentCapturesProvider.overrideWith((ref) => Stream.value(rows)),
+          ],
+          child: const MaterialApp(home: RecordingsPage()),
+        );
+
+    testWidgets('empty state explains what to do', (tester) async {
+      await tester.pumpWidget(recordings(const []));
+      await tester.pumpAndSettle();
+
+      expect(find.text('Nothing recorded yet'), findsOneWidget);
+    });
+
+    testWidgets('a capture awaiting review offers Review', (tester) async {
+      await tester.pumpWidget(recordings([
         buildCapture(
           status: CaptureStatus.awaitingReview,
           transcript: 'mera ek idea hai',
@@ -110,7 +180,7 @@ void main() {
 
     testWidgets('a failed capture shows the error and a Retry button',
         (tester) async {
-      await tester.pumpWidget(capture(rows: [
+      await tester.pumpWidget(recordings([
         buildCapture(
           status: CaptureStatus.failed,
           error: 'Sarvam rejected your API key.',
@@ -125,7 +195,7 @@ void main() {
 
     testWidgets('an offline capture reads as Queued, not Failed',
         (tester) async {
-      await tester.pumpWidget(capture(rows: [
+      await tester.pumpWidget(recordings([
         buildCapture(
           status: CaptureStatus.recorded,
           error: 'Waiting for a connection…',
@@ -139,7 +209,7 @@ void main() {
     });
 
     testWidgets('an in-flight capture shows a spinner', (tester) async {
-      await tester.pumpWidget(capture(rows: [
+      await tester.pumpWidget(recordings([
         buildCapture(status: CaptureStatus.transcribing),
       ]));
       await tester.pump();
@@ -232,7 +302,8 @@ void main() {
       expect(find.text('A courier reliving one Mumbai delivery run.'),
           findsOneWidget);
       expect(find.widgetWithText(Chip, 'movie'), findsOneWidget);
-      expect(find.text('Idea'), findsOneWidget);
+      expect(find.text('IDEA'), findsOneWidget,
+          reason: 'the type badge is set in small caps');
     });
 
     testWidgets('says so when there is no recording behind the note',

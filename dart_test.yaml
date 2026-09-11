@@ -1,0 +1,8 @@
+# Design previews render screens to PNG for review. They depend on the fonts
+# available on the machine that produced them, so they are excluded from the
+# normal suite and run on demand:
+#
+#   flutter test test/ui/preview_test.dart --update-goldens --tags preview
+tags:
+  preview:
+    skip: "run explicitly with --tags preview"

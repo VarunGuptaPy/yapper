@@ -294,7 +294,7 @@ class _ProposalCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final color = noteTypeColor(theme.colorScheme, proposal.type.name);
+    final color = noteTypeColor(context, proposal.type.name);
 
     return Card(
       child: Padding(
