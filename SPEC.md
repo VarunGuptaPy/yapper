@@ -521,8 +521,65 @@ Two failures followed, and both were visible in the raw transcripts:
 Keyterms remain capped at 50 and stripped of separators (§16.4b) — a keyterm
 containing a comma is rejected by Sarvam outright.
 
-### 18.3 Not fixed
+### 18.3 Round two: shortening the keyterms was not enough
+
+With names-only keyterms, Sarvam still transcribed **"Irrfan Khan's Madaari
+movie"** as **"Irrfan Khan's Parvesh Rawal movie"**. "Madaari" and "Parvesh
+Rawal" are not phonetically close; the substitution happened because a name was
+in the bias list at all. The extraction fix was working — the injected string
+no longer carried the "- AI expert" suffix — it just was not the whole problem.
+
+Keyterm biasing is phonetic and context-free. It cannot tell that the word it
+is about to overwrite is a film title, so on a notebook full of people's names
+it corrupts more than it corrects.
+
+| # | Decision | Rationale |
+|---|----------|-----------|
+| D55 | Keyterm biasing is **off by default** | Demonstrated twice on real recordings to replace unrelated words with known names. The feature is kept behind a switch for anyone whose recordings benefit, but it is not the default. |
+| D56 | The setting reads from a new storage key | The previous default was on, so anyone who had opened Settings carried a stored `true` that was never a deliberate choice. A fresh key lets the safer default actually reach them; deliberately turning it back on persists under the new key. |
+| D57 | Known names move to the **structuring prompt** | This is where the spec's goal — "so names are transcribed correctly" — actually belongs. The model reads the whole sentence and can tell a person from a film title, which the recogniser cannot. The roster is given with an explicit instruction not to force an unrelated word onto it, so it does not become the same trap one layer up. |
+
+### 18.4 Not fixed
 
 Transcripts already written are still wrong. The audio is kept, so
 re-transcribing an existing capture is possible, but there is no UI for it yet:
 a saved capture has no path back through the pipeline.
+
+
+---
+
+## 19. Chat answers from the notes and nothing else
+
+The owner asked for this directly, overriding the general-knowledge fallback in
+§9: *"Make it so that it just answers from the notes and adds nothing else of
+its own. It could rephrase my notes but notes are its only source of info."*
+
+### 19.1 What changed
+
+The system prompt now states the notes are the only source, in absolute terms,
+and spells out the failure it is guarding against — a model that pads an answer
+with plausible background is confidently wrong about the speaker's own life,
+which is worse than saying nothing.
+
+Specifically it must not add background, context, advice, examples, definitions
+or suggestions the notes do not already contain; must not guess or infer beyond
+what is written; and when the notes do not answer the question, must say so in
+one sentence and stop — not partially, not with a caveat, not "generally
+speaking".
+
+### 19.2 What is still allowed
+
+| Still allowed | Why |
+|---|---|
+| Rephrasing, summarising, combining, quoting, reorganising | Explicitly asked for. The restriction is on *adding*, not on wording. |
+| `propose_create_note` / `propose_update_note` | Recording what the speaker just said is not the model asserting something of its own. The rule governs what it may claim, not what they may write down. |
+| Answering about itself and what it can do | Otherwise it cannot answer "what can you do?" without a note about itself. |
+| One re-worded retry before giving up | A single unlucky query wording should not produce a false "not in your notes". |
+
+### 19.3 Decisions taken
+
+| # | Decision | Rationale |
+|---|----------|-----------|
+| D52 | The empty-search tool result tells the model to stop, not just that nothing matched | The tool result is the last thing the model reads before answering, so the instruction lands where the temptation to improvise actually arises. |
+| D53 | The forced final turn repeats the restriction | Running out of tool rounds must not become a licence to invent an answer. |
+| D54 | The prompt's wording is pinned by tests | Prompts drift as they are edited. `chat_agent_test.dart` asserts the notes-only clauses are present and that the old "Generally speaking" fallback is gone. |

@@ -22,6 +22,7 @@ class StructuringService {
   Future<List<StructuredNote>> structure({
     required String transcript,
     List<NoteRow> candidates = const [],
+    List<String> knownPeople = const [],
   }) async {
     if (transcript.trim().isEmpty) {
       throw const ValidationException(
@@ -34,6 +35,7 @@ class StructuringService {
       ChatMessage.user(buildStructuringUserPrompt(
         transcript: transcript,
         candidates: candidates,
+        knownPeople: knownPeople,
       )),
     ];
 

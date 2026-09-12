@@ -145,6 +145,33 @@ void main() {
           reason: 'Phase 1 sends no merge candidates');
     });
 
+    test('offers known names so the model can fix a mangled one', () async {
+      final llm = ScriptedLlmService([_valid]);
+      await StructuringService(llm).structure(
+        transcript: 'transcript',
+        knownPeople: ['Parvesh Rawal', 'Manas Mahendra'],
+      );
+
+      final user = llm.received.single.last.content!;
+      expect(user, contains('Parvesh Rawal'));
+      expect(user, contains('Manas Mahendra'));
+
+      // Without this the roster becomes the same trap as keyterm biasing:
+      // an unrelated word gets forced onto a known name.
+      expect(user, contains('Do NOT replace any other name'));
+      expect(user, contains('keep it exactly as transcribed'));
+    });
+
+    test('says nothing about people when there are none', () async {
+      final llm = ScriptedLlmService([_valid]);
+      await StructuringService(llm).structure(transcript: 'transcript');
+
+      expect(
+        llm.received.single.last.content,
+        isNot(contains('People the speaker already has notes about')),
+      );
+    });
+
     test('retries once with the validation error appended', () async {
       final llm = ScriptedLlmService([
         '{"notes":[{"type":"movie","title":"t","body":"b"}]}',

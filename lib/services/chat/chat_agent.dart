@@ -85,8 +85,9 @@ class ChatAgent {
       [
         ...messages,
         const ChatMessage.user(
-          'Answer now using only what the tools already returned. '
-          'Do not call any more tools.',
+          'Answer now using only what the tools already returned. Do not call '
+          'any more tools, and do not add anything the notes did not say. If '
+          'what they returned does not answer the question, say so and stop.',
         ),
       ],
     );

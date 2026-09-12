@@ -170,6 +170,9 @@ class CapturePipeline {
     final proposals = await structuring.structure(
       transcript: transcript,
       candidates: candidates,
+      // The model fixes mangled names against this roster, which is safer
+      // than biasing the recogniser towards them.
+      knownPeople: await notes.personNames(),
     );
 
     _proposals[captureId] = proposals;

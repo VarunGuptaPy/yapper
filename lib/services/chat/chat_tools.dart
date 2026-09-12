@@ -219,7 +219,9 @@ class ChatToolRunner {
       'count': results.length,
       'notes': [for (final r in results) _summary(r.note)],
       if (results.isEmpty)
-        'hint': 'Nothing matched. Say so rather than guessing.',
+        'hint': 'Nothing matched. Try one differently-worded search; if that '
+            'is also empty, tell the speaker it is not in their notes and '
+            'stop. Do not answer from general knowledge.',
     }));
   }
 

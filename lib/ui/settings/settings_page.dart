@@ -270,14 +270,15 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
                     ? (v) => setState(() => _keyterms = v)
                     : null,
                 title: Text(
-                  'Bias towards names you know',
+                  'Bias speech recognition towards known names',
                   style: theme.textTheme.bodyMedium,
                 ),
                 subtitle: Text(
                   _model.supportsKeyterms
-                      ? 'Sends the names from your people notes so they come '
-                          'back spelled right. Turn it off if a new person '
-                          'keeps being transcribed as someone you already know.'
+                      ? 'Off by default, and best left off: it makes Sarvam '
+                          'replace unfamiliar words with names it knows. Your '
+                          'known names are spelled correctly when notes are '
+                          'written either way.'
                       : 'Needs saaras:v4.',
                   style: theme.textTheme.bodySmall
                       ?.copyWith(color: theme.colorScheme.onSurfaceVariant),

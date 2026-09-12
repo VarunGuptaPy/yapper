@@ -155,6 +155,50 @@ void main() {
       expect(transcription.lastKeyterms, ['Parvesh Rawal']);
     });
 
+    test('hands known names to the structuring model, not to Sarvam',
+        () async {
+      await notes.createNote(
+        type: NoteType.person,
+        title: 'Parvesh Rawal - AI expert',
+        body: 'b',
+        tags: const [],
+      );
+
+      final llm = ScriptedLlmService([_valid]);
+      final embeddingRepo = EmbeddingRepository(db);
+      final capture = await givenRecording();
+
+      await CapturePipeline(
+        captures: captures,
+        notes: notes,
+        transcription: transcription,
+        structuring: StructuringService(llm),
+        connectivity: connectivity,
+        search: HybridSearch(
+          notes: notes,
+          embeddings: embeddingRepo,
+          embeddingService: const UnconfiguredEmbeddingService('none'),
+        ),
+        writer: NoteWriter(
+          notes: notes,
+          embeddings: embeddingRepo,
+          indexer: EmbeddingIndexer(
+            notes: notes,
+            embeddings: embeddingRepo,
+            service: const UnconfiguredEmbeddingService('none'),
+          ),
+          merger: MergeService(llm),
+        ),
+        // Off, as it now is by default.
+        keytermsEnabled: () => false,
+      ).process(capture.id);
+
+      expect(transcription.lastKeyterms, isEmpty,
+          reason: 'the recogniser must not be biased');
+      expect(llm.received.single.last.content, contains('Parvesh Rawal'),
+          reason: 'the model gets the roster instead');
+    });
+
     test('sends no keyterms when the setting is off', () async {
       await notes.createNote(
           type: NoteType.person, title: 'Ritu Sharma', body: 'b', tags: const []);

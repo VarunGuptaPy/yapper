@@ -16,7 +16,10 @@ class SettingsService {
   static const _kSarvamApiKey = 'sarvam_api_key';
   static const _kSarvamModel = 'sarvam_model';
   static const _kSarvamMode = 'sarvam_mode';
-  static const _kKeyterms = 'sarvam_keyterms_enabled';
+  /// A new key on purpose. The previous setting defaulted to on, so anyone who
+  /// had saved Settings carries a stored `true` that was never a deliberate
+  /// choice. Reading a fresh key lets the safer default actually reach them.
+  static const _kKeyterms = 'sarvam_keyterms_enabled_v2';
   static const _kLlmBaseUrl = 'llm_base_url';
   static const _kLlmApiKey = 'llm_api_key';
   static const _kLlmModel = 'llm_model';
@@ -39,7 +42,11 @@ class SettingsService {
           value(_kSarvamModel, defaults.sarvamModel.wire)),
       sarvamMode:
           SarvamMode.fromWire(value(_kSarvamMode, defaults.sarvamMode.wire)),
-      keytermsEnabled: value(_kKeyterms, 'true') != 'false',
+      keytermsEnabled: value(
+            _kKeyterms,
+            defaults.keytermsEnabled ? 'true' : 'false',
+          ) ==
+          'true',
       llmBaseUrl: value(_kLlmBaseUrl, defaults.llmBaseUrl),
       llmApiKey: value(_kLlmApiKey, defaults.llmApiKey),
       llmModel: value(_kLlmModel, defaults.llmModel),

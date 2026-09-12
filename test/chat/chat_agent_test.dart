@@ -7,6 +7,7 @@ import 'package:yapapp/data/repositories/embedding_repository.dart';
 import 'package:yapapp/data/repositories/note_repository.dart';
 import 'package:yapapp/search/hybrid_search.dart';
 import 'package:yapapp/services/chat/chat_agent.dart';
+import 'package:yapapp/services/chat/chat_prompt.dart';
 import 'package:yapapp/services/chat/chat_tools.dart';
 import 'package:yapapp/services/chat/note_proposal.dart';
 import 'package:yapapp/services/llm/llm_models.dart';
@@ -87,12 +88,14 @@ void main() {
       expect(first['title'], 'Ritu Sharma');
     });
 
-    test('search_notes hints when nothing matched', () async {
+    test('an empty search tells the model to stop, not to improvise', () async {
       final outcome =
           await runner.run(call('search_notes', {'query': 'nonexistent'}));
       final result = jsonDecode(outcome.resultJson) as Map<String, dynamic>;
+
       expect(result['count'], 0);
-      expect(result['hint'], contains('Nothing matched'));
+      expect(result['hint'], contains('not in their notes'));
+      expect(result['hint'], contains('Do not answer from general knowledge'));
     });
 
     test('search_notes requires a query', () async {
@@ -311,6 +314,31 @@ void main() {
       );
     });
 
+    test('the prompt forbids answering from general knowledge', () async {
+      // The owner asked for the notes to be the only source. A model that
+      // drifts back to world knowledge would be confidently wrong about their
+      // life, so the instruction is pinned here.
+      expect(chatSystemPrompt, contains('ONLY SOURCE'));
+      expect(chatSystemPrompt, contains('never from general knowledge'));
+      expect(
+        chatSystemPrompt,
+        contains('say so in one sentence and stop'),
+      );
+
+      // The earlier wording explicitly permitted a labelled fallback.
+      expect(chatSystemPrompt, isNot(contains('Generally speaking')));
+      expect(chatSystemPrompt, isNot(contains('You may then answer')));
+    });
+
+    test('the prompt still allows rephrasing and writing notes', () async {
+      expect(chatSystemPrompt, contains('rephrase'));
+      expect(chatSystemPrompt, contains('propose_create_note'));
+      expect(
+        chatSystemPrompt,
+        contains('Writing down what the speaker just told you is always allowed'),
+      );
+    });
+
     test('sends the system prompt and prior turns', () async {
       final llm = ScriptedToolLlm(['ok']);
       await ChatAgent(llm: llm, runner: runner).ask(
@@ -337,7 +365,7 @@ void main() {
 
       final sent = llm.received.single;
       expect(sent.first.role, ChatRole.system);
-      expect(sent.first.content, contains('search the notes first'));
+      expect(sent.first.content, contains('Search the notes before answering'));
       expect(sent[1].content, 'earlier question');
       expect(sent[2].content, 'earlier answer');
       expect(sent.last.content, 'and what else?');
@@ -396,6 +424,11 @@ void main() {
       expect(llm.calls, ChatAgent.maxToolRounds + 1);
       // The forcing turn must not offer tools, or the loop never ends.
       expect(llm.toolsOffered.last, isEmpty);
+      // And it must not become a licence to invent an answer.
+      expect(
+        llm.received.last.last.content,
+        contains('do not add anything the notes did not say'),
+      );
     });
 
     test('an empty answer with nothing proposed is an error', () async {

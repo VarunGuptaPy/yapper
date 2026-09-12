@@ -45,7 +45,7 @@ class YapSettings {
     this.sarvamApiKey = '',
     this.sarvamModel = SarvamModel.v4,
     this.sarvamMode = SarvamMode.codemix,
-    this.keytermsEnabled = true,
+    this.keytermsEnabled = false,
     this.llmBaseUrl = 'https://api.openai.com/v1',
     this.llmApiKey = '',
     this.llmModel = '',
@@ -60,9 +60,10 @@ class YapSettings {
 
   /// Whether the names of your people are sent to Sarvam to bias recognition.
   ///
-  /// It helps known names come back spelled right, but biasing cuts both ways:
-  /// a name Sarvam has never heard can get snapped onto one it has. Turn it
-  /// off if new people keep coming back as someone else.
+  /// Off by default. Biasing cuts both ways, and on real recordings it cut the
+  /// wrong way twice: unrelated words were replaced by known names — "Madaari"
+  /// came back as "Parvesh Rawal". Known-name spelling is handled by the
+  /// structuring model instead, which can tell a film title from a person.
   final bool keytermsEnabled;
 
   final String llmBaseUrl;

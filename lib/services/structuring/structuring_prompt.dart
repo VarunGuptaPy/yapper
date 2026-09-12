@@ -36,8 +36,30 @@ Return ONLY JSON matching the schema.
 String buildStructuringUserPrompt({
   required String transcript,
   List<NoteRow> candidates = const [],
+  List<String> knownPeople = const [],
 }) {
   final buffer = StringBuffer();
+
+  // Correcting known names belongs here, not in the speech recogniser.
+  // Sarvam's keyterm biasing is phonetic and blind: it replaced "Madaari"
+  // with "Parvesh Rawal" because a name was in its bias list. The model
+  // reading the whole sentence can tell a film title from a person, so the
+  // roster is given to it with an explicit instruction not to force a match.
+  if (knownPeople.isNotEmpty) {
+    buffer.writeln('People the speaker already has notes about:');
+    for (final name in knownPeople) {
+      buffer.writeln('- $name');
+    }
+    buffer
+      ..writeln()
+      ..writeln(
+        'Use these spellings when the transcript clearly means one of these '
+        'people — speech recognition often mangles a name. Do NOT replace any '
+        'other name, title or word with one of them. If what was said is not '
+        'one of these people, keep it exactly as transcribed.',
+      )
+      ..writeln();
+  }
 
   buffer.writeln('Candidate existing notes:');
   if (candidates.isEmpty) {
