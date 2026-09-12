@@ -2,7 +2,7 @@ import 'dart:convert';
 
 import '../../data/models/enums.dart';
 
-enum ProposalKind { create, update }
+enum ProposalKind { create, update, delete }
 
 /// A change the chat agent suggested. Nothing is written until the user taps
 /// Confirm on the card (SPEC.md §9).
@@ -19,7 +19,7 @@ class NoteProposal {
 
   final ProposalKind kind;
 
-  /// Set for [ProposalKind.update].
+  /// Set for [ProposalKind.update] and [ProposalKind.delete].
   final String? noteId;
 
   final NoteType? type;
@@ -50,7 +50,11 @@ class NoteProposal {
       if (map is! Map<String, dynamic>) return null;
       final tags = map['tags'];
       return NoteProposal(
-        kind: map['kind'] == 'update' ? ProposalKind.update : ProposalKind.create,
+        kind: switch (map['kind']) {
+          'update' => ProposalKind.update,
+          'delete' => ProposalKind.delete,
+          _ => ProposalKind.create,
+        },
         noteId: map['note_id'] as String?,
         type: map['type'] is String ? NoteType.tryParse(map['type'] as String) : null,
         title: map['title'] as String?,

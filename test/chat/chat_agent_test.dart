@@ -219,6 +219,52 @@ void main() {
       );
     });
 
+    test('propose_delete_note does not delete', () async {
+      final note = await givenNote();
+      final outcome = await runner.run(call('propose_delete_note', {
+        'id': note.id,
+        'reason': 'You asked me to remove it.',
+      }));
+
+      expect(outcome.proposal!.kind, ProposalKind.delete);
+      expect(outcome.proposal!.noteId, note.id);
+      expect(outcome.proposal!.reason, 'You asked me to remove it.');
+      expect(await notes.getNote(note.id), isNotNull,
+          reason: 'nothing may be removed before the user confirms');
+    });
+
+    test('a delete proposal snapshots the title for the card', () async {
+      final note = await givenNote(title: 'Never eat prawns');
+      final outcome = await runner.run(call('propose_delete_note', {
+        'id': note.id,
+        'reason': 'because',
+      }));
+
+      // Once the note is gone the card still has to say what it was.
+      expect(outcome.proposal!.title, 'Never eat prawns');
+    });
+
+    test('propose_delete_note rejects an unknown id', () async {
+      final outcome = await runner.run(call('propose_delete_note', {
+        'id': 'nope',
+        'reason': 'because',
+      }));
+      expect(outcome.proposal, isNull);
+      expect(jsonDecode(outcome.resultJson), containsPair('error', isNotNull));
+    });
+
+    test('a delete proposal survives the JSON round trip', () async {
+      final note = await givenNote();
+      final outcome = await runner.run(call('propose_delete_note', {
+        'id': note.id,
+        'reason': 'because',
+      }));
+      final decoded = NoteProposal.decode(outcome.proposal!.encode())!;
+
+      expect(decoded.kind, ProposalKind.delete);
+      expect(decoded.noteId, note.id);
+    });
+
     test('a proposal survives the JSON round trip', () async {
       final outcome = await runner.run(call('propose_create_note', {
         'type': 'idea',
@@ -310,6 +356,7 @@ void main() {
           'get_note',
           'propose_create_note',
           'propose_update_note',
+          'propose_delete_note',
         ]),
       );
     });
@@ -328,6 +375,15 @@ void main() {
       // The earlier wording explicitly permitted a labelled fallback.
       expect(chatSystemPrompt, isNot(contains('Generally speaking')));
       expect(chatSystemPrompt, isNot(contains('You may then answer')));
+    });
+
+    test('the prompt reins deleting in', () async {
+      expect(chatSystemPrompt, contains('propose_delete_note'));
+      expect(
+        chatSystemPrompt,
+        contains('Never delete to tidy up'),
+        reason: 'deleting is the one irreversible action here',
+      );
     });
 
     test('the prompt still allows rephrasing and writing notes', () async {

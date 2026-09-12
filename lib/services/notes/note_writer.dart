@@ -69,8 +69,18 @@ class NoteWriter {
     return updated;
   }
 
-  /// Applies a confirmed chat proposal.
-  Future<NoteRow> applyChatProposal(NoteProposal proposal) async {
+  /// Applies a confirmed chat proposal. Returns null for a delete, which
+  /// leaves no note behind.
+  Future<NoteRow?> applyChatProposal(NoteProposal proposal) async {
+    if (proposal.kind == ProposalKind.delete) {
+      final id = proposal.noteId;
+      if (id == null) {
+        throw StateError('A delete proposal carried no note id.');
+      }
+      await delete(id);
+      return null;
+    }
+
     if (proposal.kind == ProposalKind.create) {
       final note = await notes.createNote(
         type: proposal.type ?? NoteType.note,

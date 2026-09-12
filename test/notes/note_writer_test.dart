@@ -282,7 +282,7 @@ void main() {
         tags: ['food'],
       ));
 
-      expect(note.type, NoteType.rule);
+      expect(note!.type, NoteType.rule);
       expect(await embeddings.countForModel(embedder.modelId), 1);
     });
 
@@ -311,6 +311,42 @@ void main() {
       ));
 
       expect((await notes.getNote(existing.id))!.tags, ['keep']);
+    });
+
+    test('a confirmed delete removes the note and its vector', () async {
+      final note = await writer.createFromProposal(proposal());
+      expect(await embeddings.countForModel(embedder.modelId), 1);
+
+      final result = await writer.applyChatProposal(NoteProposal(
+        kind: ProposalKind.delete,
+        noteId: note.id,
+        title: note.title,
+      ));
+
+      expect(result, isNull, reason: 'a delete leaves no note behind');
+      expect(await notes.getNote(note.id), isNull);
+      expect(await embeddings.countForModel(embedder.modelId), 0);
+    });
+
+    test('a confirmed delete takes the version history with it', () async {
+      final note = await writer.createFromProposal(proposal());
+      await writer.applyManualEdit(id: note.id, title: 'Edited once');
+      expect(await notes.versionsFor(note.id), hasLength(1));
+
+      await writer.applyChatProposal(
+        NoteProposal(kind: ProposalKind.delete, noteId: note.id),
+      );
+
+      expect(await notes.versionsFor(note.id), isEmpty);
+    });
+
+    test('a delete with no note id is rejected', () async {
+      await expectLater(
+        writer.applyChatProposal(
+          const NoteProposal(kind: ProposalKind.delete),
+        ),
+        throwsA(isA<StateError>()),
+      );
     });
 
     test('an update with no note id is rejected', () async {

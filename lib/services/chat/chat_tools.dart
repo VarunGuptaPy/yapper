@@ -149,6 +149,24 @@ class ChatToolRunner {
             },
           ),
           const ToolDefinition(
+            name: 'propose_delete_note',
+            description:
+                'Propose deleting a note. Does not delete — the speaker '
+                'confirms it. Only use this when they clearly ask for a '
+                'specific note to be removed; never to tidy up on your own.',
+            parameters: {
+              'type': 'object',
+              'properties': {
+                'id': {'type': 'string'},
+                'reason': {
+                  'type': 'string',
+                  'description': 'Why, in one short sentence.',
+                },
+              },
+              'required': ['id', 'reason'],
+            },
+          ),
+          const ToolDefinition(
             name: 'propose_update_note',
             description:
                 'Propose a change to an existing note. Does not save — the '
@@ -192,6 +210,7 @@ class ChatToolRunner {
         'get_note' => await _getNote(args),
         'propose_create_note' => _proposeCreate(args),
         'propose_update_note' => await _proposeUpdate(args),
+        'propose_delete_note' => await _proposeDelete(args),
         _ => ToolOutcome(_error('Unknown tool "${call.name}".')),
       };
     } catch (e) {
@@ -336,6 +355,36 @@ class ChatToolRunner {
       jsonEncode({
         'status': 'proposed',
         'note': 'Shown to the speaker as a confirmation card. Not saved yet.',
+      }),
+      proposal: proposal,
+    );
+  }
+
+  Future<ToolOutcome> _proposeDelete(Map<String, dynamic> args) async {
+    final id = args['id'];
+    if (id is! String || id.isEmpty) {
+      return ToolOutcome(_error('id is required.'));
+    }
+
+    final existing = await notes.getNote(id);
+    if (existing == null) {
+      return ToolOutcome(_error('No note with that id.'));
+    }
+
+    // The title is snapshotted rather than looked up later: once the delete is
+    // confirmed the note is gone, and the card still has to say what it was.
+    final proposal = NoteProposal(
+      kind: ProposalKind.delete,
+      noteId: id,
+      title: existing.title,
+      reason: args['reason'] is String ? (args['reason'] as String).trim() : null,
+    );
+
+    return ToolOutcome(
+      jsonEncode({
+        'status': 'proposed',
+        'note': 'Shown to the speaker as a confirmation card. Nothing is '
+            'deleted yet.',
       }),
       proposal: proposal,
     );

@@ -171,7 +171,39 @@ void main() {
     ),
   ];
 
-  Widget app(Widget child, Brightness brightness) => ProviderScope(
+  final deleteChat = [
+    ChatMessageRow(
+      id: 'd1',
+      conversationId: 'c1',
+      role: 'user',
+      content: 'delete the prawns rule, I tested it and I am fine',
+      citations: const [],
+      createdAt: DateTime(2026, 9, 13, 10),
+    ),
+    ChatMessageRow(
+      id: 'd2',
+      conversationId: 'c1',
+      role: 'assistant',
+      content: 'That rule is the only note about prawns, so here it is.',
+      citations: const [],
+      proposal: const NoteProposal(
+        kind: ProposalKind.delete,
+        noteId: 'n3',
+        title: 'Never eat prawns',
+        reason: 'You said you tested it and reacted fine.',
+      ).encode(),
+      proposalStatus: 'pending',
+      createdAt: DateTime(2026, 9, 13, 10, 1),
+    ),
+  ];
+
+  Widget app(
+    Widget child,
+    Brightness brightness, {
+    List<ChatMessageRow>? chatMessages,
+  }) {
+    final messages = chatMessages ?? chat;
+    return ProviderScope(
         overrides: [
           notesProvider.overrideWith((ref) => Stream.value(notes)),
           noteProvider.overrideWith(
@@ -204,7 +236,9 @@ void main() {
           ),
           notesMentioningProvider.overrideWith((ref, id) async => []),
           noteSearchResultsProvider.overrideWith((ref) async => const []),
-          chatMessagesProvider.overrideWith((ref) => Stream.value(chat)),
+          chatMessagesProvider.overrideWith((ref) => Stream.value(messages)),
+          // ChatPage watches this to decide whether to offer 'Past chats'.
+          chatConversationsProvider.overrideWith((ref) => Stream.value(const [])),
           currentSettingsProvider.overrideWithValue(const YapSettings(
             sarvamApiKey: 'k',
             llmApiKey: 'k',
@@ -223,15 +257,17 @@ void main() {
           home: child,
         ),
       );
+  }
 
   Future<void> shoot(
     WidgetTester tester,
     String name,
     Widget child, {
     Brightness brightness = Brightness.light,
+    List<ChatMessageRow>? chatMessages,
   }) async {
     await tester.binding.setSurfaceSize(const Size(412, 900));
-    await tester.pumpWidget(app(child, brightness));
+    await tester.pumpWidget(app(child, brightness, chatMessages: chatMessages));
     await tester.pumpAndSettle();
     await expectLater(
       find.byType(MaterialApp),
@@ -265,6 +301,15 @@ void main() {
       tester,
       'chat_light',
       const Scaffold(body: SafeArea(child: ChatPage())),
+    );
+  });
+
+  testWidgets('chat delete proposal', (tester) async {
+    await shoot(
+      tester,
+      'chat_delete',
+      const Scaffold(body: SafeArea(child: ChatPage())),
+      chatMessages: deleteChat,
     );
   });
 

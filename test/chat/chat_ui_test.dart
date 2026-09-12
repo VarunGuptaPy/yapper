@@ -66,6 +66,8 @@ void main() {
       ProviderScope(
         overrides: [
           chatMessagesProvider.overrideWith((ref) => Stream.value(messages)),
+          // ChatPage watches this to decide whether to offer 'Past chats'.
+          chatConversationsProvider.overrideWith((ref) => Stream.value(const [])),
           currentSettingsProvider.overrideWithValue(settings),
           noteProvider.overrideWith(
             (ref, id) => Stream.value(citedNote ?? buildNote(id: id)),
@@ -202,6 +204,68 @@ void main() {
 
       expect(find.text('Dismissed'), findsOneWidget);
       expect(find.widgetWithText(FilledButton, 'Confirm'), findsNothing);
+    });
+
+    testWidgets('a delete proposal shows the whole note, not just its name',
+        (tester) async {
+      await tester.pumpWidget(chatHost(
+        [
+          msg(
+            content: 'Removing that one.',
+            proposal: const NoteProposal(
+              kind: ProposalKind.delete,
+              noteId: 'n1',
+              title: 'Ritu Sharma',
+              reason: 'You asked me to remove it.',
+            ),
+            status: ProposalStatus.pending,
+          ),
+        ],
+        citedNote: buildNote(title: 'Ritu Sharma'),
+      ));
+      await tester.pumpAndSettle();
+
+      expect(find.text('Delete "Ritu Sharma"'), findsOneWidget);
+      // The body has to be visible: if the model picked the wrong note from a
+      // vague request, that must be obvious before Delete is tapped.
+      expect(find.text('Freelance video editor.'), findsOneWidget);
+      expect(find.textContaining('edit history goes too'), findsOneWidget);
+      expect(find.widgetWithText(FilledButton, 'Delete'), findsOneWidget);
+      expect(find.widgetWithText(TextButton, 'Keep it'), findsOneWidget);
+    });
+
+    testWidgets('a confirmed delete reads as done, with no buttons left',
+        (tester) async {
+      await tester.pumpWidget(chatHost([
+        msg(
+          proposal: const NoteProposal(
+            kind: ProposalKind.delete,
+            noteId: 'gone',
+            title: 'Never eat prawns',
+          ),
+          status: ProposalStatus.confirmed,
+        ),
+      ]));
+      await tester.pumpAndSettle();
+
+      expect(find.text('Deleted'), findsOneWidget);
+      expect(find.widgetWithText(FilledButton, 'Delete'), findsNothing);
+    });
+
+    testWidgets('a dismissed delete says the note was kept', (tester) async {
+      await tester.pumpWidget(chatHost([
+        msg(
+          proposal: const NoteProposal(
+            kind: ProposalKind.delete,
+            noteId: 'n1',
+            title: 'Ritu Sharma',
+          ),
+          status: ProposalStatus.dismissed,
+        ),
+      ]));
+      await tester.pumpAndSettle();
+
+      expect(find.text('Kept'), findsOneWidget);
     });
 
     testWidgets('an update proposal names the note it changes', (tester) async {

@@ -447,7 +447,7 @@ Export → share sheet → restore → notes present, on a Pixel emulator with t
 real drift isolate: the path unit tests cannot reach, because they use a plain
 `NativeDatabase` rather than the isolate-backed connection the app runs on.
 `test/backup/make_fixture_test.dart` (tagged `fixture`) writes a seeded
-`.yapbackup` to `/tmp` for exactly this.
+`.yapbackup` to `/tmp` for exactly this; run it with `--run-skipped`.
 
 
 ---
@@ -583,3 +583,24 @@ speaking".
 | D52 | The empty-search tool result tells the model to stop, not just that nothing matched | The tool result is the last thing the model reads before answering, so the instruction lands where the temptation to improvise actually arises. |
 | D53 | The forced final turn repeats the restriction | Running out of tool rounds must not become a licence to invent an answer. |
 | D54 | The prompt's wording is pinned by tests | Prompts drift as they are edited. `chat_agent_test.dart` asserts the notes-only clauses are present and that the old "Generally speaking" fallback is gone. |
+
+
+---
+
+## 20. Deleting a note from chat
+
+Added on request. `propose_delete_note(id, reason)` joins the other two write
+tools and goes through the same gate: the model proposes, a card appears, and
+nothing happens until Confirm.
+
+| # | Decision | Rationale |
+|---|----------|-----------|
+| D58 | The card shows the note's whole body, not just its title | Deleting is the only irreversible action in Yap. If the model picked the wrong note from a vague request ("delete that prawns thing"), that has to be obvious before the button is tapped. |
+| D59 | The title is snapshotted onto the proposal | Once the delete is confirmed the note is gone, and the card still has to say what it was. The body is read live, so it disappears from the card after deletion — which is the truthful thing to show. |
+| D60 | The card is styled destructively and says what does not come back | Error colours, a red "Its edit history goes too, and cannot be recovered. The recording and transcript stay.", and the buttons read **Delete** / **Keep it** rather than Confirm / Dismiss. |
+| D61 | The prompt reins the tool in | "Only propose a delete when the speaker clearly asks for a specific note to be removed. Never delete to tidy up, to resolve a duplicate, or as a way of replacing a note — change it instead." Pinned by a test. |
+| D62 | `applyChatProposal` returns `NoteRow?` | A delete leaves no row behind, and returning null is more honest than inventing one. |
+
+The existing `NoteWriter.delete` does the work, so a chat delete clears the
+embedding and cascades the version history, capture links and people links
+exactly as the manual delete on the note screen already did.
