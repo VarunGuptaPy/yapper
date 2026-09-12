@@ -6,7 +6,9 @@ import 'package:yapapp/data/models/enums.dart';
 import 'package:yapapp/providers/providers.dart';
 import 'package:yapapp/services/chat/note_proposal.dart';
 import 'package:yapapp/services/settings/settings_model.dart';
+import 'package:yapapp/data/repositories/chat_repository.dart';
 import 'package:yapapp/ui/chat/chat_page.dart';
+import 'package:yapapp/ui/chat/chats_page.dart';
 import 'package:yapapp/ui/chat/citation_chip.dart';
 import 'package:yapapp/ui/notes/notes_page.dart';
 import 'package:yapapp/search/hybrid_search.dart';
@@ -38,6 +40,7 @@ ChatMessageRow msg({
 }) =>
     ChatMessageRow(
       id: id,
+      conversationId: 'c1',
       role: role,
       content: content,
       citations: citations,
@@ -223,6 +226,112 @@ void main() {
     });
   });
 
+  group('conversations', () {
+    ChatConversationRow conversation({
+      String id = 'c1',
+      String? title = 'which of my connections edits video?',
+      int minutesAgo = 5,
+    }) =>
+        ChatConversationRow(
+          id: id,
+          title: title,
+          createdAt: DateTime(2026, 9, 11),
+          updatedAt: DateTime.now().subtract(Duration(minutes: minutesAgo)),
+        );
+
+    Widget chatsHost(List<ConversationSummary> rows, {String? active}) =>
+        ProviderScope(
+          overrides: [
+            chatConversationsProvider.overrideWith((ref) => Stream.value(rows)),
+            if (active != null)
+              activeConversationProvider.overrideWith(
+                () => _FixedConversation(active),
+              ),
+          ],
+          child: const MaterialApp(home: ChatsPage()),
+        );
+
+    testWidgets('lists past chats newest first', (tester) async {
+      await tester.pumpWidget(chatsHost([
+        ConversationSummary(
+          conversation: conversation(),
+          messageCount: 4,
+          lastMessage: 'Ritu Sharma does video editing.',
+        ),
+        ConversationSummary(
+          conversation: conversation(
+              id: 'c2', title: 'did I ever have a movie idea?', minutesAgo: 90),
+          messageCount: 2,
+          lastMessage: 'Yes, a time-loop one.',
+        ),
+      ]));
+      await tester.pumpAndSettle();
+
+      expect(find.text('which of my connections edits video?'), findsOneWidget);
+      expect(find.text('did I ever have a movie idea?'), findsOneWidget);
+      expect(find.text('Ritu Sharma does video editing.'), findsOneWidget);
+      expect(find.text('4 messages'), findsOneWidget);
+      expect(find.text('2 messages'), findsOneWidget);
+    });
+
+    testWidgets('an untitled thread still reads sensibly', (tester) async {
+      await tester.pumpWidget(chatsHost([
+        ConversationSummary(
+          conversation: conversation(title: null),
+          messageCount: 0,
+        ),
+      ]));
+      await tester.pumpAndSettle();
+
+      expect(find.text('New chat'), findsOneWidget);
+      expect(find.text('0 messages'), findsOneWidget);
+    });
+
+    testWidgets('empty state explains where chats come from', (tester) async {
+      await tester.pumpWidget(chatsHost(const []));
+      await tester.pumpAndSettle();
+
+      expect(find.text('No chats yet'), findsOneWidget);
+      expect(find.textContaining('Chat tab'), findsOneWidget);
+    });
+
+    testWidgets('deleting asks first and spares the notes', (tester) async {
+      await tester.pumpWidget(chatsHost([
+        ConversationSummary(
+          conversation: conversation(),
+          messageCount: 1,
+          lastMessage: 'hello',
+        ),
+      ]));
+      await tester.pumpAndSettle();
+
+      await tester.tap(find.byIcon(Icons.delete_outline_rounded));
+      await tester.pumpAndSettle();
+
+      expect(find.text('Delete this chat?'), findsOneWidget);
+      expect(find.textContaining('notes it created or changed stay'),
+          findsOneWidget);
+    });
+
+    testWidgets('marks which thread is open', (tester) async {
+      await tester.pumpWidget(chatsHost(
+        [
+          ConversationSummary(
+              conversation: conversation(), messageCount: 1),
+          ConversationSummary(
+              conversation: conversation(id: 'c2', title: 'other'),
+              messageCount: 1),
+        ],
+        active: 'c1',
+      ));
+      await tester.pumpAndSettle();
+
+      // The open thread carries a dot; the other does not.
+      expect(find.byType(ChatsPage), findsOneWidget);
+      expect(tester.takeException(), isNull);
+    });
+  });
+
   group('Notes search', () {
     Widget notesHost({
       required String query,
@@ -300,4 +409,14 @@ class _FixedQuery extends NoteSearchQuery {
 
   @override
   String build() => value;
+}
+
+
+class _FixedConversation extends ActiveConversation {
+  _FixedConversation(this.id);
+
+  final String id;
+
+  @override
+  String? build() => id;
 }

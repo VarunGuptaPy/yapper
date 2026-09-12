@@ -425,6 +425,22 @@ API keys. They live in the Android keystore, not the database, and keystore
 material cannot be exported. After restoring onto a new phone the notes are all
 there but Settings is empty — re-enter the three keys.
 
+### 16.4b Bug fixed on device: keyterms with commas
+
+A long recording failed with `Creating the transcription job failed (400). Send
+each keyterm as a separate array item; comma-separated and semicolon-separated
+values are not supported.`
+
+Keyterms are person-note titles, and one of them was `Archit Sethia, Unirely`.
+Sarvam reads a comma or semicolon inside a keyterm as an attempt to pack
+several terms into one string and rejects the whole request. `sanitizeKeyterms`
+handled length and duplicates but passed separators straight through.
+
+It now splits on `,` and `;` rather than stripping them — such a title really
+is two names, and both are worth biasing recognition toward — then collapses
+whitespace, trims, de-duplicates and caps at 50 as before. Affects both the
+REST and Batch paths, since both share the sanitiser.
+
 ### 16.5 Verified on device
 
 Export → share sheet → restore → notes present, on a Pixel emulator with the
@@ -432,3 +448,39 @@ real drift isolate: the path unit tests cannot reach, because they use a plain
 `NativeDatabase` rather than the isolate-backed connection the app runs on.
 `test/backup/make_fixture_test.dart` (tagged `fixture`) writes a seeded
 `.yapbackup` to `/tmp` for exactly this.
+
+
+---
+
+## 17. Multiple chats
+
+Requested after Phase 4: a way to start a fresh conversation without losing the
+previous one.
+
+### 17.1 Schema v3
+
+`chat_conversations` (id, title, created_at, updated_at) and a
+`conversation_id` on `chat_messages`, cascading on delete.
+
+The migration matters more than the feature: anyone upgrading has real chat
+history in the old flat log. v2 → v3 creates the table, gathers every existing
+message into one thread titled "Earlier conversation", then uses
+`TableMigration` to add the column — which rebuilds the table with the full new
+definition, so a migrated database ends up byte-identical in shape to a fresh
+one rather than missing the foreign key. Foreign keys are switched off for the
+rebuild and back on in `beforeOpen`.
+
+`test/db/migration_v3_test.dart` builds a real v2-shaped database, runs the
+real migration, and asserts the messages, their order, the notes, the FTS index
+and the foreign-key pragma all come through. It also asserts a user who never
+chatted does **not** end up with a phantom empty conversation.
+
+### 17.2 Decisions taken
+
+| # | Decision | Rationale |
+|---|----------|-----------|
+| D44 | A conversation row is written on the first message, not when "New chat" is tapped | Tapping New chat and backing out would otherwise leave an empty thread in the list every time. |
+| D45 | The title is the opening question, truncated to 48 characters | Scannable without paying for an LLM call to write a title. Never rewritten by later messages. |
+| D46 | A fresh chat is the default on launch | Each question about your notes is usually independent, and old threads are one tap away. |
+| D47 | `recentHistory` is scoped to the conversation | The whole point of a fresh chat is that the model does not carry the previous one in. Tested explicitly. |
+| D48 | Deleting a chat spares the notes | Confirmation says so out loud: a `propose_*` card may have created or edited notes that should outlive the conversation. |

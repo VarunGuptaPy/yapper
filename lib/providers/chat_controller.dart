@@ -23,15 +23,24 @@ class ChatController extends Notifier<ChatUiState> {
     final chats = ref.read(chatRepositoryProvider);
     state = const ChatUiState(sending: true);
 
+    // A fresh chat has no row until now, so an abandoned one never appears in
+    // the list.
+    var conversationId = ref.read(activeConversationProvider);
+    if (conversationId == null) {
+      conversationId = await chats.createConversation();
+      ref.read(activeConversationProvider.notifier).open(conversationId);
+    }
+
     // The history is read before the new turn is stored so the question is not
     // duplicated as both history and prompt.
-    final history = await chats.recentHistory();
-    await chats.addUserMessage(question);
+    final history = await chats.recentHistory(conversationId);
+    await chats.addUserMessage(conversationId, question);
 
     try {
       final answer =
           await ref.read(chatAgentProvider).ask(question, history: history);
       await chats.addAssistantMessage(
+        conversationId: conversationId,
         content: answer.content,
         citations: answer.citedNoteIds,
         proposal: answer.proposal,
@@ -65,7 +74,18 @@ class ChatController extends Notifier<ChatUiState> {
       .read(chatRepositoryProvider)
       .setProposalStatus(messageId, ProposalStatus.dismissed);
 
-  Future<void> clearHistory() => ref.read(chatRepositoryProvider).clear();
+  /// Leaves the current thread for a new one. Nothing is deleted.
+  void startNewChat() => ref.read(activeConversationProvider.notifier).startNew();
+
+  void openConversation(String id) =>
+      ref.read(activeConversationProvider.notifier).open(id);
+
+  Future<void> deleteConversation(String id) async {
+    await ref.read(chatRepositoryProvider).deleteConversation(id);
+    if (ref.read(activeConversationProvider) == id) {
+      ref.read(activeConversationProvider.notifier).startNew();
+    }
+  }
 
   void dismissError() => state = ChatUiState(sending: state.sending);
 }

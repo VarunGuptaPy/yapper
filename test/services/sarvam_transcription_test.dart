@@ -75,6 +75,55 @@ void main() {
       final long = 'x' * 100;
       expect(sanitizeKeyterms([long]).single.length, 64);
     });
+
+    // Sarvam answers a 400 for any keyterm containing a comma or semicolon:
+    // it reads them as several terms crammed into one string. Note titles are
+    // user-authored, so this really happens.
+    test('splits a term containing a comma into separate keyterms', () {
+      expect(
+        sanitizeKeyterms(['Archit Sethia, Unirely']),
+        ['Archit Sethia', 'Unirely'],
+      );
+    });
+
+    test('splits on semicolons too', () {
+      expect(sanitizeKeyterms(['Manas; Mahendra']), ['Manas', 'Mahendra']);
+    });
+
+    test('never emits a term containing a separator', () {
+      final terms = sanitizeKeyterms([
+        'A, B; C',
+        'Plain Name',
+        ',,,',
+        'Trailing,',
+      ]);
+      for (final term in terms) {
+        expect(term, isNot(contains(',')));
+        expect(term, isNot(contains(';')));
+        expect(term.trim(), isNotEmpty);
+      }
+      expect(terms, containsAll(['A', 'B', 'C', 'Plain Name', 'Trailing']));
+    });
+
+    test('collapses newlines and runs of spaces', () {
+      expect(
+        sanitizeKeyterms(['Ritu\n  Sharma']),
+        ['Ritu Sharma'],
+      );
+    });
+
+    test('a separator-only title contributes nothing', () {
+      expect(sanitizeKeyterms([' , ; ']), isEmpty);
+    });
+
+    test('still caps at 50 after splitting', () {
+      // Ten titles of ten comma-separated names each.
+      final many = List.generate(
+        10,
+        (i) => List.generate(10, (j) => 'name-$i-$j').join(', '),
+      );
+      expect(sanitizeKeyterms(many), hasLength(50));
+    });
   });
 
   group('REST', () {
@@ -122,6 +171,21 @@ void main() {
       final raw = built.api.requests.single.formField('keyterms');
       expect(raw, isNotNull);
       expect(jsonDecode(raw!), ['Ritu Sharma', 'New Delhi']);
+    });
+
+    test('a comma in a note title does not reach the wire', () async {
+      final built = buildService(
+        apiHandler: (_) => jsonResponse({'transcript': 'ok'}),
+      );
+
+      await built.service.transcribe(
+        audio,
+        keyterms: ['Archit Sethia, Unirely'],
+        duration: const Duration(seconds: 5),
+      );
+
+      final raw = built.api.requests.single.formField('keyterms');
+      expect(jsonDecode(raw!), ['Archit Sethia', 'Unirely']);
     });
 
     test('omits keyterms entirely when there are none', () async {
@@ -320,6 +384,28 @@ void main() {
       expect(params['mode'], 'codemix');
       expect(params['language_code'], 'unknown');
       expect(params['keyterms'], ['Ritu Sharma']);
+    });
+
+    test('a comma in a note title does not reach the batch job', () async {
+      // The exact shape that failed on device with a 400.
+      final built = buildService(
+        apiHandler: batchRouter(),
+        storageHandler: storageRouter,
+      );
+      await built.service.transcribe(
+        audio,
+        keyterms: ['Archit Sethia, Unirely', 'Manas Mahendra'],
+        duration: const Duration(minutes: 3),
+      );
+
+      final params = built.api.requests.first.json['job_parameters'] as Map;
+      expect(
+        params['keyterms'],
+        ['Archit Sethia', 'Unirely', 'Manas Mahendra'],
+      );
+      for (final term in params['keyterms'] as List) {
+        expect(term as String, isNot(contains(',')));
+      }
     });
 
     test('uploads to the presigned URL with the Azure block-blob header',

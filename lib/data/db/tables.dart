@@ -92,6 +92,24 @@ class Embeddings extends Table {
   Set<Column> get primaryKey => {noteId, modelId};
 }
 
+/// One chat thread. Starting a fresh chat opens a new one rather than wiping
+/// what came before, so old conversations stay browsable.
+@DataClassName('ChatConversationRow')
+class ChatConversations extends Table {
+  TextColumn get id => text()();
+
+  /// Taken from the opening question. Null until the first message is sent.
+  TextColumn get title => text().nullable()();
+
+  DateTimeColumn get createdAt => dateTime()();
+
+  /// Bumped on every message so the list sorts by recent activity.
+  DateTimeColumn get updatedAt => dateTime()();
+
+  @override
+  Set<Column> get primaryKey => {id};
+}
+
 /// Chat turns, kept locally like everything else (SPEC.md §9).
 ///
 /// Only the turns the user sees are stored: intermediate tool rounds are
@@ -99,6 +117,9 @@ class Embeddings extends Table {
 @DataClassName('ChatMessageRow')
 class ChatMessages extends Table {
   TextColumn get id => text()();
+
+  TextColumn get conversationId =>
+      text().references(ChatConversations, #id, onDelete: KeyAction.cascade)();
 
   /// `user` or `assistant`.
   TextColumn get role => text()();

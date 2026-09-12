@@ -127,6 +127,7 @@ void main() {
   final chat = [
     ChatMessageRow(
       id: 'm1',
+      conversationId: 'c1',
       role: 'user',
       content: 'which of my connections could help with video editing?',
       citations: const [],
@@ -134,6 +135,7 @@ void main() {
     ),
     ChatMessageRow(
       id: 'm2',
+      conversationId: 'c1',
       role: 'assistant',
       content: '**Ritu Sharma** is your one editor [1]. She freelances on '
           'video and also does colour grading, and you met her at the Goa '
@@ -144,6 +146,7 @@ void main() {
     ),
     ChatMessageRow(
       id: 'm3',
+      conversationId: 'c1',
       role: 'user',
       content: 'remember I should never eat prawns',
       citations: const [],
@@ -151,6 +154,7 @@ void main() {
     ),
     ChatMessageRow(
       id: 'm4',
+      conversationId: 'c1',
       role: 'assistant',
       content: 'You already have that as a rule, so here is an update '
           'instead of a duplicate.',

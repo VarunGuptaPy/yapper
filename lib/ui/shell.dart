@@ -1,9 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../providers/chat_controller.dart';
 import '../providers/providers.dart';
 import 'capture/capture_page.dart';
 import 'capture/recordings_page.dart';
+import 'chat/chats_page.dart';
 import 'chat/chat_page.dart';
 import 'notes/notes_page.dart';
 import 'settings/settings_page.dart';
@@ -44,6 +46,19 @@ class _AppShellState extends ConsumerState<AppShell> {
               tooltip: 'Recordings',
               onPressed: () => RecordingsPage.open(context),
             ),
+          if (_index == 2) ...[
+            IconButton(
+              icon: const Icon(Icons.add_comment_outlined),
+              tooltip: 'New chat',
+              onPressed: () =>
+                  ref.read(chatControllerProvider.notifier).startNewChat(),
+            ),
+            IconButton(
+              icon: const Icon(Icons.history_rounded),
+              tooltip: 'Past chats',
+              onPressed: () => ChatsPage.open(context),
+            ),
+          ],
           IconButton(
             icon: const Icon(Icons.settings_outlined),
             tooltip: 'Settings',

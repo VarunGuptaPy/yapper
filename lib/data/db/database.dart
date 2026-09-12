@@ -51,6 +51,7 @@ END;
     NoteCaptures,
     NotePeople,
     Embeddings,
+    ChatConversations,
     ChatMessages,
   ],
 )
@@ -58,7 +59,7 @@ class AppDatabase extends _$AppDatabase {
   AppDatabase(super.e);
 
   @override
-  int get schemaVersion => 2;
+  int get schemaVersion => 3;
 
   /// Store timestamps as ISO-8601 text rather than unix seconds.
   ///
@@ -75,11 +76,31 @@ class AppDatabase extends _$AppDatabase {
           await _createFtsObjects();
         },
         onUpgrade: (m, from, to) async {
-          // v2 added chat history. Everything else is untouched, so this is
-          // purely additive — no data is rewritten or lost.
+          // Recreating a table with a new column requires foreign keys to be
+          // off; `beforeOpen` switches them back on for normal use.
+          await customStatement('PRAGMA foreign_keys = OFF');
+
+          // v2 added chat history. Purely additive.
           if (from < 2) {
             await m.createTable(chatMessages);
           }
+
+          // v3 split chat history into separate conversations. Existing
+          // messages are gathered into one thread rather than dropped.
+          if (from < 3) {
+            await m.createTable(chatConversations);
+            final legacyId = await _adoptLegacyChat(m);
+            await m.alterTable(
+              TableMigration(
+                chatMessages,
+                newColumns: [chatMessages.conversationId],
+                columnTransformer: {
+                  chatMessages.conversationId: Constant<String>(legacyId),
+                },
+              ),
+            );
+          }
+
           await _createFtsObjects();
         },
         beforeOpen: (details) async {
@@ -88,6 +109,30 @@ class AppDatabase extends _$AppDatabase {
           await customStatement('PRAGMA foreign_keys = ON');
         },
       );
+
+  /// Creates the thread that pre-v3 messages belong to, and returns its id.
+  ///
+  /// Only written when there is history to adopt — otherwise a brand-new
+  /// install would open onto an empty conversation it never started.
+  Future<String> _adoptLegacyChat(Migrator m) async {
+    const legacyId = 'legacy-conversation';
+
+    final existing =
+        await customSelect('SELECT COUNT(*) AS c FROM chat_messages').getSingle();
+    if (existing.read<int>('c') == 0) return legacyId;
+
+    final now = DateTime.now();
+    await into(chatConversations).insert(
+      ChatConversationRow(
+        id: legacyId,
+        title: 'Earlier conversation',
+        createdAt: now,
+        updatedAt: now,
+      ),
+      mode: InsertMode.insertOrIgnore,
+    );
+    return legacyId;
+  }
 
   Future<void> _createFtsObjects() async {
     await customStatement(_createFts);

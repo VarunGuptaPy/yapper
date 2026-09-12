@@ -40,22 +40,36 @@ class SarvamHttp {
   }
 }
 
-/// Sarvam's documented keyterm limits: at most 50 terms of at most 64 chars.
-/// Exceeding either is a 4xx, so the caller's list is clamped rather than
-/// trusted — note titles are user-authored and can be any length.
+/// Sarvam's keyterm rules: at most 50 distinct terms, at most 64 characters
+/// each, and **no commas or semicolons inside a term** — it reads those as an
+/// attempt to pack several keyterms into one string and rejects the whole
+/// request with a 400.
+///
+/// Keyterms are person-note titles, which are user-authored, so none of that
+/// can be assumed. A title like "Archit Sethia, Unirely" really is two names,
+/// so it is split into two keyterms rather than having the comma stripped.
 List<String> sanitizeKeyterms(List<String> raw) {
   final seen = <String>{};
   final out = <String>[];
+
   for (final term in raw) {
-    final trimmed = term.trim();
-    if (trimmed.isEmpty) continue;
-    final clamped =
-        trimmed.length > 64 ? trimmed.substring(0, 64).trim() : trimmed;
-    if (seen.add(clamped.toLowerCase())) out.add(clamped);
-    if (out.length == 50) break;
+    for (final piece in term.split(_keytermSeparators)) {
+      // Collapse any newline or run of spaces a title might carry.
+      final trimmed = piece.replaceAll(RegExp(r'\s+'), ' ').trim();
+      if (trimmed.isEmpty) continue;
+
+      final clamped =
+          (trimmed.length > 64 ? trimmed.substring(0, 64) : trimmed).trim();
+      if (clamped.isEmpty) continue;
+
+      if (seen.add(clamped.toLowerCase())) out.add(clamped);
+      if (out.length == 50) return out;
+    }
   }
   return out;
 }
+
+final _keytermSeparators = RegExp(r'[,;]');
 
 /// Maps a Dio failure onto the app's error vocabulary, keeping retryable
 /// problems (timeouts, connection drops) distinct from permanent ones.

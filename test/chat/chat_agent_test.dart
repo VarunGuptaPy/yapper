@@ -318,6 +318,7 @@ void main() {
         history: [
           ChatMessageRow(
             id: 'm1',
+            conversationId: 'c1',
             role: 'user',
             content: 'earlier question',
             citations: const [],
@@ -325,6 +326,7 @@ void main() {
           ),
           ChatMessageRow(
             id: 'm2',
+            conversationId: 'c1',
             role: 'assistant',
             content: 'earlier answer',
             citations: const [],

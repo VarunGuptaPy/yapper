@@ -286,9 +286,29 @@ final noteSearchResultsProvider =
 
 // --------------------------------------------------------------------- chat
 
-final chatMessagesProvider = StreamProvider<List<ChatMessageRow>>(
-  (ref) => ref.watch(chatRepositoryProvider).watchMessages(),
+/// The thread on screen. Null means a fresh chat that has not been written
+/// yet — no row exists until the first message is sent, so backing out of a
+/// new chat leaves nothing behind.
+class ActiveConversation extends Notifier<String?> {
+  @override
+  String? build() => null;
+
+  void open(String id) => state = id;
+  void startNew() => state = null;
+}
+
+final activeConversationProvider =
+    NotifierProvider<ActiveConversation, String?>(ActiveConversation.new);
+
+final chatConversationsProvider = StreamProvider<List<ConversationSummary>>(
+  (ref) => ref.watch(chatRepositoryProvider).watchConversations(),
 );
+
+final chatMessagesProvider = StreamProvider<List<ChatMessageRow>>((ref) {
+  final id = ref.watch(activeConversationProvider);
+  if (id == null) return Stream.value(const <ChatMessageRow>[]);
+  return ref.watch(chatRepositoryProvider).watchMessages(id);
+});
 
 // ------------------------------------------------------------------- people
 

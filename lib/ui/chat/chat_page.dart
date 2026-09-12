@@ -8,6 +8,7 @@ import '../../services/chat/note_proposal.dart';
 import '../common/empty_state.dart';
 import '../common/patterns.dart';
 import 'chat_markdown.dart';
+import 'chats_page.dart';
 import 'citation_chip.dart';
 import 'proposal_card.dart';
 
@@ -54,6 +55,8 @@ class _ChatPageState extends ConsumerState<ChatPage> {
     final chat = ref.watch(chatControllerProvider);
     final settings = ref.watch(currentSettingsProvider);
     final theme = Theme.of(context);
+    final hasPastChats =
+        (ref.watch(chatConversationsProvider).value ?? const []).isNotEmpty;
 
     ref.listen(chatControllerProvider, (previous, next) {
       final error = next.error;
@@ -85,7 +88,7 @@ class _ChatPageState extends ConsumerState<ChatPage> {
               message: '$e',
             ),
             data: (rows) => rows.isEmpty
-                ? const PatternBackdrop(
+                ? PatternBackdrop(
                     pattern: YapPattern.kolam,
                     scale: 34,
                     child: EmptyState(
@@ -93,6 +96,15 @@ class _ChatPageState extends ConsumerState<ChatPage> {
                       title: 'Ask about your notes',
                       message: 'Try "which of my connections could help with '
                           'video editing?" or "did I ever have a movie idea?"',
+                      // Only worth offering once there is something to go
+                      // back to.
+                      action: hasPastChats
+                          ? TextButton.icon(
+                              onPressed: () => ChatsPage.open(context),
+                              icon: const Icon(Icons.history_rounded, size: 18),
+                              label: const Text('Past chats'),
+                            )
+                          : null,
                     ),
                   )
                 : ListView.builder(
