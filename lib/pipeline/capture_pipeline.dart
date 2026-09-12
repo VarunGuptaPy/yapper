@@ -30,6 +30,7 @@ class CapturePipeline {
     required this.connectivity,
     required this.search,
     required this.writer,
+    required this.keytermsEnabled,
     this.paths = const AudioPaths(),
   });
 
@@ -44,6 +45,10 @@ class CapturePipeline {
   final ConnectivityService connectivity;
   final HybridSearch search;
   final NoteWriter writer;
+
+  /// Read at transcription time so a change in Settings takes effect on the
+  /// next recording without rebuilding the pipeline.
+  final bool Function() keytermsEnabled;
   final AudioPaths paths;
 
   /// The message shown on a capture that is waiting for a connection rather
@@ -123,8 +128,9 @@ class CapturePipeline {
     );
 
     final audio = await paths.resolve(capture.audioPath);
-    // Person notes become keyterms so names come back spelled consistently.
-    final keyterms = await notes.personNames();
+    // Person names become keyterms so known names come back spelled
+    // consistently. Off by request when biasing does more harm than good.
+    final keyterms = keytermsEnabled() ? await notes.personNames() : const <String>[];
 
     final transcript = await transcription.transcribe(
       audio,

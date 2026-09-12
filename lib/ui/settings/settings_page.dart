@@ -27,6 +27,7 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
 
   SarvamModel _model = SarvamModel.v4;
   SarvamMode _mode = SarvamMode.codemix;
+  bool _keyterms = true;
 
   bool _loaded = false;
   bool _saving = false;
@@ -69,6 +70,7 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
     _embeddingModel.text = settings.embeddingModel;
     _model = settings.sarvamModel;
     _mode = settings.sarvamMode;
+    _keyterms = settings.keytermsEnabled;
     _indexedModel = settings.embeddingModel;
   }
 
@@ -130,6 +132,7 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
         sarvamApiKey: _sarvamKey.text.trim(),
         sarvamModel: _model,
         sarvamMode: _mode,
+        keytermsEnabled: _keyterms,
         llmBaseUrl: _llmBaseUrl.text.trim(),
         llmApiKey: _llmKey.text.trim(),
         llmModel: _llmModel.text.trim(),
@@ -259,7 +262,28 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
                       ?.copyWith(color: theme.colorScheme.onSurfaceVariant),
                 ),
               ),
-              const SizedBox(height: 32),
+              const SizedBox(height: 8),
+              SwitchListTile(
+                contentPadding: EdgeInsets.zero,
+                value: _keyterms,
+                onChanged: _model.supportsKeyterms
+                    ? (v) => setState(() => _keyterms = v)
+                    : null,
+                title: Text(
+                  'Bias towards names you know',
+                  style: theme.textTheme.bodyMedium,
+                ),
+                subtitle: Text(
+                  _model.supportsKeyterms
+                      ? 'Sends the names from your people notes so they come '
+                          'back spelled right. Turn it off if a new person '
+                          'keeps being transcribed as someone you already know.'
+                      : 'Needs saaras:v4.',
+                  style: theme.textTheme.bodySmall
+                      ?.copyWith(color: theme.colorScheme.onSurfaceVariant),
+                ),
+              ),
+              const SizedBox(height: 24),
               const _SectionTitle('Language model'),
               TextField(
                 controller: _llmBaseUrl,

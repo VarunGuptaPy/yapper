@@ -45,6 +45,7 @@ class YapSettings {
     this.sarvamApiKey = '',
     this.sarvamModel = SarvamModel.v4,
     this.sarvamMode = SarvamMode.codemix,
+    this.keytermsEnabled = true,
     this.llmBaseUrl = 'https://api.openai.com/v1',
     this.llmApiKey = '',
     this.llmModel = '',
@@ -56,6 +57,13 @@ class YapSettings {
   final String sarvamApiKey;
   final SarvamModel sarvamModel;
   final SarvamMode sarvamMode;
+
+  /// Whether the names of your people are sent to Sarvam to bias recognition.
+  ///
+  /// It helps known names come back spelled right, but biasing cuts both ways:
+  /// a name Sarvam has never heard can get snapped onto one it has. Turn it
+  /// off if new people keep coming back as someone else.
+  final bool keytermsEnabled;
 
   final String llmBaseUrl;
   final String llmApiKey;
@@ -98,6 +106,7 @@ class YapSettings {
     String? sarvamApiKey,
     SarvamModel? sarvamModel,
     SarvamMode? sarvamMode,
+    bool? keytermsEnabled,
     String? llmBaseUrl,
     String? llmApiKey,
     String? llmModel,
@@ -109,6 +118,7 @@ class YapSettings {
         sarvamApiKey: sarvamApiKey ?? this.sarvamApiKey,
         sarvamModel: sarvamModel ?? this.sarvamModel,
         sarvamMode: sarvamMode ?? this.sarvamMode,
+        keytermsEnabled: keytermsEnabled ?? this.keytermsEnabled,
         llmBaseUrl: llmBaseUrl ?? this.llmBaseUrl,
         llmApiKey: llmApiKey ?? this.llmApiKey,
         llmModel: llmModel ?? this.llmModel,

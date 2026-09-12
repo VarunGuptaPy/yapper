@@ -484,3 +484,45 @@ chatted does **not** end up with a phantom empty conversation.
 | D46 | A fresh chat is the default on launch | Each question about your notes is usually independent, and old threads are one tap away. |
 | D47 | `recentHistory` is scoped to the conversation | The whole point of a fresh chat is that the model does not carry the previous one in. Tested explicitly. |
 | D48 | Deleting a chat spares the notes | Confirmation says so out loud: a `propose_*` card may have created or edited notes that should outlive the conversation. |
+
+
+---
+
+## 18. Bug: keyterms poisoning transcripts
+
+Reported on device: recordings about **Shivank Tripathi** came back transcribed
+as **"Parvesh Rawal - AI expert"**, and other transcripts contained strings of
+person-note titles that were never spoken.
+
+### 18.1 Cause
+
+`personNames()` sent the *whole title* of every person note as a Sarvam
+keyterm. The structuring model writes person titles descriptively — "Parvesh
+Rawal - AI expert, potential co-founder/CTO" — so Sarvam was being handed long
+descriptive phrases where its documentation asks for short proper nouns.
+
+Two failures followed, and both were visible in the raw transcripts:
+
+1. **Verbatim emission.** Keyterms appeared word for word in the output,
+   punctuation included — nobody says "dash" mid-sentence.
+2. **Name substitution.** Biasing hard toward ~10 known names made an
+   unfamiliar name snap onto the nearest one. For an app whose job is capturing
+   *new* people, this is the worst possible failure: it silently attributes a
+   note to the wrong person.
+
+### 18.2 Fix
+
+| # | Decision | Rationale |
+|---|----------|-----------|
+| D49 | Keyterms are names extracted from titles, never the titles | `extractPersonName` cuts at the first separator (`- – — : , ; ( / |`), keeps the leading run of capitalised words, caps at 4 words and 64 characters. "Parvesh Rawal - AI expert, potential co-founder/CTO" becomes "Parvesh Rawal". |
+| D50 | Caseless scripts count as capitalised | Devanagari has no capitals, and a name written in one must not be discarded by a Latin rule. |
+| D51 | A Settings switch turns keyterm biasing off entirely | The heuristic reduces the risk but cannot remove it: biasing towards known names inherently works against hearing a new one. Given this corrupted real notes, the owner gets the off switch rather than only a promise that it is better now. |
+
+Keyterms remain capped at 50 and stripped of separators (§16.4b) — a keyterm
+containing a comma is rejected by Sarvam outright.
+
+### 18.3 Not fixed
+
+Transcripts already written are still wrong. The audio is kept, so
+re-transcribing an existing capture is possible, but there is no UI for it yet:
+a saved capture has no path back through the pipeline.

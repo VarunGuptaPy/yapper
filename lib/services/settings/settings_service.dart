@@ -16,6 +16,7 @@ class SettingsService {
   static const _kSarvamApiKey = 'sarvam_api_key';
   static const _kSarvamModel = 'sarvam_model';
   static const _kSarvamMode = 'sarvam_mode';
+  static const _kKeyterms = 'sarvam_keyterms_enabled';
   static const _kLlmBaseUrl = 'llm_base_url';
   static const _kLlmApiKey = 'llm_api_key';
   static const _kLlmModel = 'llm_model';
@@ -38,6 +39,7 @@ class SettingsService {
           value(_kSarvamModel, defaults.sarvamModel.wire)),
       sarvamMode:
           SarvamMode.fromWire(value(_kSarvamMode, defaults.sarvamMode.wire)),
+      keytermsEnabled: value(_kKeyterms, 'true') != 'false',
       llmBaseUrl: value(_kLlmBaseUrl, defaults.llmBaseUrl),
       llmApiKey: value(_kLlmApiKey, defaults.llmApiKey),
       llmModel: value(_kLlmModel, defaults.llmModel),
@@ -52,6 +54,7 @@ class SettingsService {
       _write(_kSarvamApiKey, settings.sarvamApiKey),
       _write(_kSarvamModel, settings.sarvamModel.wire),
       _write(_kSarvamMode, settings.sarvamMode.wire),
+      _write(_kKeyterms, settings.keytermsEnabled ? 'true' : 'false'),
       _write(_kLlmBaseUrl, settings.llmBaseUrl),
       _write(_kLlmApiKey, settings.llmApiKey),
       _write(_kLlmModel, settings.llmModel),

@@ -66,6 +66,7 @@ void main() {
   CapturePipeline buildPipeline(
     List<Object> llmResponses, {
     EmbeddingService? embeddingService,
+    bool keyterms = true,
   }) {
     final llm = ScriptedLlmService(llmResponses);
     final embedService =
@@ -94,6 +95,7 @@ void main() {
         indexer: indexer,
         merger: MergeService(llm),
       ),
+      keytermsEnabled: () => keyterms,
     );
   }
 
@@ -125,7 +127,7 @@ void main() {
       expect(transcription.lastDuration, const Duration(milliseconds: 42000));
     });
 
-    test('passes person-note titles as keyterms', () async {
+    test('passes person names as keyterms', () async {
       await notes.createNote(
           type: NoteType.person, title: 'Ritu Sharma', body: 'b', tags: const []);
       await notes.createNote(
@@ -135,6 +137,32 @@ void main() {
       await buildPipeline([_valid]).process(capture.id);
 
       expect(transcription.lastKeyterms, ['Ritu Sharma']);
+    });
+
+    test('sends only the name, never the descriptive title', () async {
+      // The shape that poisoned real transcripts: Sarvam emitted the whole
+      // title verbatim because it was handed one as a keyterm.
+      await notes.createNote(
+        type: NoteType.person,
+        title: 'Parvesh Rawal - AI expert, potential co-founder/CTO',
+        body: 'b',
+        tags: const [],
+      );
+
+      final capture = await givenRecording();
+      await buildPipeline([_valid]).process(capture.id);
+
+      expect(transcription.lastKeyterms, ['Parvesh Rawal']);
+    });
+
+    test('sends no keyterms when the setting is off', () async {
+      await notes.createNote(
+          type: NoteType.person, title: 'Ritu Sharma', body: 'b', tags: const []);
+
+      final capture = await givenRecording();
+      await buildPipeline([_valid], keyterms: false).process(capture.id);
+
+      expect(transcription.lastKeyterms, isEmpty);
     });
 
     test('saving a proposal creates a note linked to the recording', () async {
@@ -411,6 +439,7 @@ void main() {
           indexer: indexer,
           merger: MergeService(llm),
         ),
+        keytermsEnabled: () => true,
       ).process(capture.id);
 
       final userTurn = llm.received.single.last.content!;

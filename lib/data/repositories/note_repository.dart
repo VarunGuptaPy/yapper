@@ -3,6 +3,7 @@ import 'package:drift/drift.dart';
 import '../../core/ids.dart';
 import '../db/database.dart';
 import '../models/enums.dart';
+import '../models/person_name.dart';
 
 /// A note plus its FTS relevance score, returned by [NoteRepository.searchFts].
 class ScoredNoteId {
@@ -41,14 +42,25 @@ class NoteRepository {
     return (_db.select(_db.notes)..where((t) => t.id.isIn(ids))).get();
   }
 
-  /// Titles of every `person` note, used as Sarvam keyterms so names are
-  /// transcribed the way they are spelled (SPEC.md §5).
+  /// The names of everyone you have a `person` note about, most recent first,
+  /// used as Sarvam keyterms so known names come back spelled consistently
+  /// (SPEC.md §5).
+  ///
+  /// Only the name, never the whole title — see [extractPersonName].
   Future<List<String>> personNames() async {
     final rows = await (_db.select(_db.notes)
           ..where((t) => t.type.equalsValue(NoteType.person))
           ..orderBy([(t) => OrderingTerm.desc(t.updatedAt)]))
         .get();
-    return [for (final r in rows) r.title];
+
+    final names = <String>[];
+    final seen = <String>{};
+    for (final row in rows) {
+      final name = extractPersonName(row.title);
+      if (name == null) continue;
+      if (seen.add(name.toLowerCase())) names.add(name);
+    }
+    return names;
   }
 
   /// Creates a note and links the captures that produced it.

@@ -207,6 +207,7 @@ final capturePipelineProvider = Provider<CapturePipeline>((ref) {
     connectivity: ref.watch(connectivityProvider),
     search: ref.watch(hybridSearchProvider),
     writer: ref.watch(noteWriterProvider),
+    keytermsEnabled: () => ref.read(currentSettingsProvider).keytermsEnabled,
   );
   ref.onDispose(pipeline.dispose);
   return pipeline;
