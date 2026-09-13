@@ -26,7 +26,6 @@ class LotusMotif extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final accents = context.accents;
-    final scheme = context.scheme;
 
     return AnimatedScale(
       duration: const Duration(milliseconds: 260),
@@ -38,7 +37,7 @@ class LotusMotif extends StatelessWidget {
         child: CustomPaint(
           size: Size.square(size),
           painter: _LotusPainter(
-            outer: active ? scheme.secondary : scheme.primary,
+            outer: active ? accents.micActive : accents.goal,
             middle: accents.person,
             inner: accents.idea,
           ),

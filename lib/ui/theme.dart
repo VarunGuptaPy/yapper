@@ -47,6 +47,9 @@ class YapAccents extends ThemeExtension<YapAccents> {
     required this.neutral,
     required this.pattern,
     required this.waveform,
+    required this.micIdle,
+    required this.micActive,
+    required this.accentFill,
   });
 
   final Color idea;
@@ -61,6 +64,18 @@ class YapAccents extends ThemeExtension<YapAccents> {
   /// Left-to-right gradient for the voice waveform.
   final List<Color> waveform;
 
+  /// The mic button's fill. Deliberately *not* `ColorScheme.primary`: in dark
+  /// mode Material turns primary into a pale tint, which made the biggest
+  /// element on the capture screen a washed-out lavender disc and pushed the
+  /// lotus into the background. A brand fill should stay saturated in both
+  /// themes.
+  final Color micIdle;
+  final Color micActive;
+
+  /// Alpha for accent-tinted tiles and chips. A 12% wash reads fine on paper
+  /// and disappears against ink, so dark needs more.
+  final double accentFill;
+
   static const _light = YapAccents(
     idea: YapPalette.marigold,
     person: YapPalette.teal,
@@ -69,20 +84,25 @@ class YapAccents extends ThemeExtension<YapAccents> {
     neutral: Color(0xFF7C756B),
     pattern: Color(0x0F2E3A87),
     waveform: [YapPalette.indigo, YapPalette.teal, YapPalette.vermillion],
+    micIdle: YapPalette.indigo,
+    micActive: YapPalette.vermillion,
+    accentFill: 0.12,
   );
 
+  /// Saturated rather than pastel. The pale tints Material suggests for dark
+  /// themes all land in the same washed-out register, which is what made this
+  /// mode read grey.
   static const _dark = YapAccents(
-    idea: YapPalette.marigoldLight,
-    person: YapPalette.tealLight,
-    rule: YapPalette.vermillionLight,
-    goal: YapPalette.indigoLight,
-    neutral: Color(0xFF9A9288),
-    pattern: Color(0x14AEB8FF),
-    waveform: [
-      YapPalette.indigoLight,
-      YapPalette.tealLight,
-      YapPalette.marigoldLight,
-    ],
+    idea: Color(0xFFFFC552),
+    person: Color(0xFF4ED8D0),
+    rule: Color(0xFFFF8A66),
+    goal: Color(0xFF9FB0FF),
+    neutral: Color(0xFF9C9AB4),
+    pattern: Color(0x1FAEB8FF),
+    waveform: [Color(0xFF9FB0FF), Color(0xFF4ED8D0), Color(0xFFFFC552)],
+    micIdle: Color(0xFF4A5AD4),
+    micActive: Color(0xFFE0563A),
+    accentFill: 0.22,
   );
 
   @override
@@ -94,6 +114,9 @@ class YapAccents extends ThemeExtension<YapAccents> {
     Color? neutral,
     Color? pattern,
     List<Color>? waveform,
+    Color? micIdle,
+    Color? micActive,
+    double? accentFill,
   }) =>
       YapAccents(
         idea: idea ?? this.idea,
@@ -103,6 +126,9 @@ class YapAccents extends ThemeExtension<YapAccents> {
         neutral: neutral ?? this.neutral,
         pattern: pattern ?? this.pattern,
         waveform: waveform ?? this.waveform,
+        micIdle: micIdle ?? this.micIdle,
+        micActive: micActive ?? this.micActive,
+        accentFill: accentFill ?? this.accentFill,
       );
 
   @override
@@ -119,6 +145,9 @@ class YapAccents extends ThemeExtension<YapAccents> {
         for (var i = 0; i < waveform.length; i++)
           Color.lerp(waveform[i], other.waveform[i], t)!,
       ],
+      micIdle: Color.lerp(micIdle, other.micIdle, t)!,
+      micActive: Color.lerp(micActive, other.micActive, t)!,
+      accentFill: accentFill + (other.accentFill - accentFill) * t,
     );
   }
 }
@@ -171,6 +200,8 @@ class YapTheme {
       chipTheme: ChipThemeData(
         side: BorderSide(color: scheme.outlineVariant),
         backgroundColor: scheme.surfaceContainerHighest.withValues(alpha: 0.5),
+        selectedColor: scheme.primaryContainer,
+        checkmarkColor: scheme.onPrimaryContainer,
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(9)),
         labelStyle: TextStyle(fontSize: 12.5, color: scheme.onSurfaceVariant),
         padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
@@ -307,38 +338,46 @@ class YapTheme {
     inversePrimary: YapPalette.indigoLight,
   );
 
+  /// Ink, not black.
+  ///
+  /// A neutral near-black gave every surface the same value and no character;
+  /// light mode's warmth came from its paper, and dark needs the equivalent.
+  /// The ground is tinted indigo and the container steps are spaced far enough
+  /// apart to actually read as depth.
   static const _darkScheme = ColorScheme(
     brightness: Brightness.dark,
-    primary: YapPalette.indigoLight,
-    onPrimary: Color(0xFF19225E),
-    primaryContainer: Color(0xFF2C3679),
-    onPrimaryContainer: Color(0xFFDDE1FF),
-    secondary: YapPalette.vermillionLight,
-    onSecondary: Color(0xFF5C1A0A),
-    secondaryContainer: Color(0xFF7A2B16),
-    onSecondaryContainer: Color(0xFFFFDBD1),
-    tertiary: YapPalette.marigoldLight,
-    onTertiary: Color(0xFF432C00),
-    tertiaryContainer: Color(0xFF5F4100),
-    onTertiaryContainer: Color(0xFFFFDEA8),
-    error: Color(0xFFFFB4A8),
-    onError: Color(0xFF5F1408),
-    errorContainer: Color(0xFF862013),
+    primary: Color(0xFFA9B6FF),
+    onPrimary: Color(0xFF17204A),
+    // The real indigo, so nav indicators, chat bubbles and selected chips
+    // carry the brand rather than a grey-blue wash.
+    primaryContainer: Color(0xFF33409B),
+    onPrimaryContainer: Color(0xFFDDE2FF),
+    secondary: Color(0xFFFF9B7A),
+    onSecondary: Color(0xFF4A1405),
+    secondaryContainer: Color(0xFFA8442A),
+    onSecondaryContainer: Color(0xFFFFDBD0),
+    tertiary: Color(0xFFFFC552),
+    onTertiary: Color(0xFF402A00),
+    tertiaryContainer: Color(0xFF6B4A00),
+    onTertiaryContainer: Color(0xFFFFE1A3),
+    error: Color(0xFFFF9A8A),
+    onError: Color(0xFF5A1206),
+    errorContainer: Color(0xFF8C2A1A),
     onErrorContainer: Color(0xFFFFDAD4),
-    surface: YapPalette.sumi,
-    onSurface: Color(0xFFE9E3D9),
-    onSurfaceVariant: Color(0xFFC9C1B6),
-    surfaceContainerLowest: Color(0xFF0C0D12),
-    surfaceContainerLow: Color(0xFF17181F),
-    surfaceContainer: YapPalette.sumiRaised,
-    surfaceContainerHigh: Color(0xFF22232D),
-    surfaceContainerHighest: YapPalette.sumiHigh,
-    outline: Color(0xFF938C82),
-    outlineVariant: Color(0xFF3B3A44),
+    surface: Color(0xFF14141F),
+    onSurface: Color(0xFFECE8E1),
+    onSurfaceVariant: Color(0xFFC6C4D6),
+    surfaceContainerLowest: Color(0xFF0D0D15),
+    surfaceContainerLow: Color(0xFF191A27),
+    surfaceContainer: Color(0xFF1E1F2E),
+    surfaceContainerHigh: Color(0xFF26283A),
+    surfaceContainerHighest: Color(0xFF2F3146),
+    outline: Color(0xFF8E90AB),
+    outlineVariant: Color(0xFF3C3E58),
     shadow: Color(0xFF000000),
     scrim: Color(0xFF000000),
-    inverseSurface: Color(0xFFE9E3D9),
-    onInverseSurface: Color(0xFF32302D),
+    inverseSurface: Color(0xFFECE8E1),
+    onInverseSurface: Color(0xFF2A2A38),
     inversePrimary: YapPalette.indigo,
   );
 }

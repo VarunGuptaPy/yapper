@@ -73,7 +73,7 @@ void main() {
 
       // A large flat render for the Play listing and for eyeballing the design.
       await write(
-        'test/ui/previews/logo.png',
+        'docs/screenshots/logo.png',
         512,
         const YapLogoPainter(),
       );

@@ -639,3 +639,52 @@ adaptive icon covers everything since.
 
 iOS icons are not generated — iOS builds are still out of scope (§3), and the
 same generator will produce them when they are not.
+
+
+---
+
+## 22. Dark mode
+
+Reported as "gorgeous in light mode, pretty bland in dark". Rendering both side
+by side made the causes obvious, and one of them was self-inflicted.
+
+### 22.1 What was wrong
+
+1. **A neutral near-black ground.** Light mode's character comes from its warm
+   washi paper; dark had a flat `#121319` void with no equivalent, and the
+   container steps were so close together that nothing read as depth.
+2. **The mic button had gone pale.** `ColorScheme.primary` becomes a light tint
+   in a dark theme, so the largest element on the capture screen rendered as a
+   washed-out lavender disc and the lotus receded behind it. Following
+   Material's convention had inverted the composition.
+3. **Pastel accents.** The dark accents were all light tints of the palette,
+   which landed in the same washed-out register.
+4. **A dried-blood chip.** The selected filter chip picked up
+   `secondaryContainer` (`#7A2B16`).
+5. Accent-tinted tiles and tags used a 12% wash that works on paper and
+   disappears against ink.
+
+### 22.2 Decisions taken
+
+| # | Decision | Rationale |
+|---|----------|-----------|
+| D67 | The dark ground is tinted indigo ink, not neutral black | Light mode's warmth came from its paper; dark needs the equivalent, and an indigo-led app should sit on indigo-cast ink. Container steps were spread far enough apart to read as elevation. |
+| D68 | The mic fill is `YapAccents.micIdle` / `micActive`, not `ColorScheme.primary` | A brand fill should stay saturated in both themes. Material's pale-primary convention is right for text and tinted surfaces and wrong for the one big filled element on the screen. |
+| D69 | Dark accents are saturated, not pastel | Gold, teal, coral and indigo at full strength rather than tints. |
+| D70 | `primaryContainer` is the real indigo in dark | Nav indicator, chat bubbles and selected chips now carry the brand instead of a grey-blue wash. |
+| D71 | Chips select in indigo | `secondaryContainer` read as dried blood. |
+| D72 | `YapAccents.accentFill` carries the tint alpha per theme | 12% on paper, 22% on ink. One number rather than a magic constant at each call site. |
+
+### 22.3 Previews now render at production fidelity
+
+The preview harness loads Flutter's own bundled Roboto **and**
+`MaterialIcons-Regular.otf` from `bin/cache/artifacts/material_fonts`, and
+patches the button, chip and navigation-bar text styles as well as the
+`TextTheme` — component themes carry their own styles and were still rendering
+as Ahem boxes. The font directory is found by walking up from
+`Platform.resolvedExecutable` (and via `FLUTTER_ROOT`), because the depth from
+the Dart binary changes between Flutter versions; the first attempt hard-coded
+it, silently found nothing, and regressed every preview to boxes.
+
+Screenshots now write to `docs/screenshots/`, so the golden files and the
+images in `README.md` are the same artefacts.

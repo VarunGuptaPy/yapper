@@ -26,8 +26,8 @@ class MicButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final scheme = context.scheme;
-    final accent = isRecording ? scheme.secondary : scheme.primary;
+    final accents = context.accents;
+    final accent = isRecording ? accents.micActive : accents.micIdle;
 
     return SizedBox(
       width: _canvas,
@@ -58,7 +58,7 @@ class MicButton extends StatelessWidget {
                     isRecording ? Icons.stop_rounded : Icons.mic_none_rounded,
                     key: ValueKey(isRecording),
                     size: 34,
-                    color: isRecording ? scheme.onSecondary : scheme.onPrimary,
+                    color: Colors.white,
                   ),
                 ),
               ),

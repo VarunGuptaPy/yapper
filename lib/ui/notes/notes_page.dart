@@ -201,7 +201,8 @@ class _TinyTag extends StatelessWidget {
         padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
         decoration: BoxDecoration(
           borderRadius: BorderRadius.circular(6),
-          border: Border.all(color: color.withValues(alpha: 0.35)),
+          color: color.withValues(alpha: context.accents.accentFill * 0.6),
+          border: Border.all(color: color.withValues(alpha: 0.5)),
         ),
         child: Text(
           label,
@@ -237,9 +238,9 @@ class _NoteTile extends StatelessWidget {
               width: 38,
               height: 38,
               decoration: BoxDecoration(
-                color: color.withValues(alpha: 0.12),
+                color: color.withValues(alpha: context.accents.accentFill),
                 borderRadius: BorderRadius.circular(11),
-                border: Border.all(color: color.withValues(alpha: 0.3)),
+                border: Border.all(color: color.withValues(alpha: 0.45)),
               ),
               child: Icon(noteTypeIcon(note.type.name), size: 19, color: color),
             ),

@@ -11,6 +11,7 @@ import 'package:yapapp/data/models/enums.dart';
 import 'package:yapapp/providers/providers.dart';
 import 'package:yapapp/services/chat/note_proposal.dart';
 import 'package:yapapp/services/settings/settings_model.dart';
+import 'package:yapapp/ui/capture/capture_page.dart';
 import 'package:yapapp/ui/chat/chat_page.dart';
 import 'package:yapapp/ui/notes/note_detail_page.dart';
 import 'package:yapapp/ui/notes/notes_page.dart';
@@ -23,11 +24,46 @@ import 'package:yapapp/ui/theme.dart';
 const _previewBodyFont = 'PreviewBody';
 bool _bodyFontLoaded = false;
 
+/// Finds Flutter's bundled Roboto and Material icon font.
+///
+/// `Platform.resolvedExecutable` is the Dart VM inside the SDK
+/// (`flutter/bin/cache/dart-sdk/bin/dart`), so the fonts sit a few levels up
+/// under `artifacts/`. Walking up beats hard-coding a depth that changes
+/// between Flutter versions.
+Directory? _materialFonts() {
+  final candidates = <String>[];
+
+  final root = Platform.environment['FLUTTER_ROOT'];
+  if (root != null && root.isNotEmpty) {
+    candidates.add('$root/bin/cache/artifacts/material_fonts');
+  }
+
+  var dir = File(Platform.resolvedExecutable).parent;
+  for (var i = 0; i < 6; i++) {
+    candidates.add('${dir.path}/artifacts/material_fonts');
+    dir = dir.parent;
+  }
+
+  for (final path in candidates) {
+    final directory = Directory(path);
+    if (directory.existsSync()) return directory;
+  }
+  return null;
+}
+
 ThemeData withPreviewFont(ThemeData theme) {
   if (!_bodyFontLoaded) return theme;
-  // Only the non-display styles: the serif is already real.
-  TextStyle? body(TextStyle? s) =>
-      s?.fontFamily == 'InstrumentSerif' ? s : s?.copyWith(fontFamily: _previewBodyFont);
+
+  TextStyle? body(TextStyle? style) =>
+      style?.fontFamily == 'InstrumentSerif'
+          ? style
+          : style?.copyWith(fontFamily: _previewBodyFont);
+
+  WidgetStateProperty<TextStyle?>? buttonText(ButtonStyle? style) {
+    final resolved = style?.textStyle?.resolve({});
+    return WidgetStatePropertyAll(body(resolved ?? const TextStyle()));
+  }
+
   final t = theme.textTheme;
   return theme.copyWith(
     textTheme: t.copyWith(
@@ -40,9 +76,26 @@ ThemeData withPreviewFont(ThemeData theme) {
       titleMedium: body(t.titleMedium),
       titleSmall: body(t.titleSmall),
     ),
+    filledButtonTheme: FilledButtonThemeData(
+      style: theme.filledButtonTheme.style
+          ?.copyWith(textStyle: buttonText(theme.filledButtonTheme.style)),
+    ),
+    outlinedButtonTheme: OutlinedButtonThemeData(
+      style: theme.outlinedButtonTheme.style
+          ?.copyWith(textStyle: buttonText(theme.outlinedButtonTheme.style)),
+    ),
+    chipTheme: theme.chipTheme.copyWith(
+      labelStyle: body(theme.chipTheme.labelStyle),
+    ),
+    navigationBarTheme: theme.navigationBarTheme.copyWith(
+      labelTextStyle: WidgetStateProperty.resolveWith(
+        (states) => body(
+          theme.navigationBarTheme.labelTextStyle?.resolve(states),
+        ),
+      ),
+    ),
   );
 }
-
 
 void main() {
   setUpAll(() async {
@@ -50,23 +103,38 @@ void main() {
       ..addFont(rootBundle.load('assets/fonts/InstrumentSerif-Regular.ttf'));
     await serif.load();
 
-    // The test renderer has no real body font, so text would otherwise come
-    // out as Ahem boxes and these previews would say nothing about
-    // typography. Borrow a system face when one is readable; the previews
-    // still render (as boxes) on a machine where none is.
-    for (final path in [
-      '/Library/Fonts/SF-Pro.ttf',
-      '/System/Library/Fonts/Supplemental/Arial.ttf',
-      '/System/Library/Fonts/Geneva.ttf',
-    ]) {
-      final file = File(path);
-      if (!file.existsSync()) continue;
-      final bytes = await file.readAsBytes();
-      final data = ByteData.view(Uint8List.fromList(bytes).buffer);
-      await (FontLoader(_previewBodyFont)..addFont(Future.value(data))).load();
-      _bodyFontLoaded = true;
-      break;
+    // The test renderer ships no real fonts, so everything would come out as
+    // Ahem boxes and these previews would say nothing about the design.
+    // Flutter's own cache has Roboto and the Material icon font, which is
+    // exactly what the app uses on a device.
+    final fonts = _materialFonts();
+    if (fonts == null) {
+      debugPrint('PREVIEW: no material_fonts found — text will be Ahem boxes');
+      return;
     }
+    debugPrint('PREVIEW: fonts from ${fonts.path}');
+
+    Future<ByteData> read(String name) async => ByteData.view(
+          Uint8List.fromList(
+            await File('${fonts.path}/$name').readAsBytes(),
+          ).buffer,
+        );
+
+    final body = FontLoader(_previewBodyFont);
+    for (final weight in ['Regular', 'Medium', 'Bold']) {
+      final file = File('${fonts.path}/Roboto-$weight.ttf');
+      if (file.existsSync()) body.addFont(read('Roboto-$weight.ttf'));
+    }
+    await body.load();
+
+    final icons = File('${fonts.path}/MaterialIcons-Regular.otf');
+    if (icons.existsSync()) {
+      await (FontLoader('MaterialIcons')
+            ..addFont(read('MaterialIcons-Regular.otf')))
+          .load();
+    }
+
+    _bodyFontLoaded = true;
   });
 
   NoteRow note({
@@ -239,6 +307,7 @@ void main() {
           chatMessagesProvider.overrideWith((ref) => Stream.value(messages)),
           // ChatPage watches this to decide whether to offer 'Past chats'.
           chatConversationsProvider.overrideWith((ref) => Stream.value(const [])),
+          recentCapturesProvider.overrideWith((ref) => Stream.value(const [])),
           currentSettingsProvider.overrideWithValue(const YapSettings(
             sarvamApiKey: 'k',
             llmApiKey: 'k',
@@ -271,7 +340,7 @@ void main() {
     await tester.pumpAndSettle();
     await expectLater(
       find.byType(MaterialApp),
-      matchesGoldenFile('previews/$name.png'),
+      matchesGoldenFile('../../docs/screenshots/$name.png'),
     );
   }
 
@@ -302,6 +371,22 @@ void main() {
       'chat_light',
       const Scaffold(body: SafeArea(child: ChatPage())),
     );
+  });
+
+  testWidgets('capture', (tester) async {
+    await shoot(tester, 'capture_light',
+        const Scaffold(body: SafeArea(child: CapturePage())));
+  });
+
+  testWidgets('capture dark', (tester) async {
+    await shoot(tester, 'capture_dark',
+        const Scaffold(body: SafeArea(child: CapturePage())),
+        brightness: Brightness.dark);
+  });
+
+  testWidgets('note detail dark', (tester) async {
+    await shoot(tester, 'note_detail_dark', const NoteDetailPage(noteId: 'n1'),
+        brightness: Brightness.dark);
   });
 
   testWidgets('chat delete proposal', (tester) async {

@@ -24,7 +24,7 @@ class CitationChip extends ConsumerWidget {
     final color = noteTypeColor(context, note.type.name);
 
     return Material(
-      color: color.withValues(alpha: 0.10),
+      color: color.withValues(alpha: context.accents.accentFill),
       borderRadius: BorderRadius.circular(9),
       child: InkWell(
         borderRadius: BorderRadius.circular(9),

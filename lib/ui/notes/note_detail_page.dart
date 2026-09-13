@@ -127,7 +127,7 @@ class _NoteBody extends ConsumerWidget {
                       padding: const EdgeInsets.symmetric(
                           horizontal: 9, vertical: 4),
                       decoration: BoxDecoration(
-                        color: color.withValues(alpha: 0.12),
+                        color: color.withValues(alpha: context.accents.accentFill),
                         borderRadius: BorderRadius.circular(8),
                         border:
                             Border.all(color: color.withValues(alpha: 0.35)),
