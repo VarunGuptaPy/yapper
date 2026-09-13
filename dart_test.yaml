@@ -10,3 +10,6 @@ tags:
     skip: "run explicitly with --run-skipped"
   fixture:
     skip: "run explicitly with --run-skipped"
+  # Regenerates the Android launcher icons from lib/ui/common/yap_logo.dart.
+  icons:
+    skip: "run explicitly with --run-skipped"

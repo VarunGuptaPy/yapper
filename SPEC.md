@@ -604,3 +604,38 @@ nothing happens until Confirm.
 The existing `NoteWriter.delete` does the work, so a chat delete clears the
 embedding and cascades the version history, capture links and people links
 exactly as the manual delete on the note screen already did.
+
+
+---
+
+## 21. The app icon
+
+Drawn in Flutter by `lib/ui/common/yap_logo.dart` rather than as a separate
+image file, so the icon and the app are painted by the same code in the same
+palette. `test/tool/generate_icons_test.dart` renders it to every Android
+density:
+
+    flutter test test/tool/generate_icons_test.dart --run-skipped
+
+### 21.1 The mark
+
+The lotus from the recording screen, closed around the mic button — the same
+*padma* / *hasu* motif, drawn radially as a kolam and a Japanese *mon* both
+are. Marigold outer petals, vermillion inner petals offset by half a step,
+a warm-paper centre disc, an indigo microphone, on an indigo ground.
+
+Simplified hard for size: eight petals rather than sixteen, two accent colours,
+and a solid centre. A launcher icon is read at 48dp.
+
+| # | Decision | Rationale |
+|---|----------|-----------|
+| D63 | The microphone is one connected silhouette | The first version drew the capsule, stem and base as separate shapes. At 48dp the base dissolved into a detached smudge — checked by magnifying the real mdpi asset, not by assuming. |
+| D64 | A real `monochrome` layer is generated | Android 13+ themed icons tint the foreground flat, which would turn a coloured icon into a featureless blob. The monochrome layer is a silhouette with the microphone punched out via `BlendMode.clear`, so it keeps its shape when tinted. |
+| D65 | The adaptive foreground is scaled to 60% | Only the middle of a 108dp adaptive layer is guaranteed to survive the launcher's mask. |
+| D66 | The logo is used in Settings as well | Otherwise `YapLogo` would be a widget in `lib/` that only a test ever calls. |
+
+Legacy square and round PNGs are generated for pre-API-26 launchers; the
+adaptive icon covers everything since.
+
+iOS icons are not generated — iOS builds are still out of scope (§3), and the
+same generator will produce them when they are not.

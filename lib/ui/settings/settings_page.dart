@@ -7,6 +7,8 @@ import '../../services/llm/openai_compatible_llm_service.dart';
 import '../../search/embedding_indexer.dart';
 import '../../services/embedding/openai_compatible_embedding_service.dart';
 import '../../services/settings/settings_model.dart';
+import '../common/patterns.dart';
+import '../common/yap_logo.dart';
 import 'backup_section.dart';
 
 class SettingsPage extends ConsumerStatefulWidget {
@@ -388,13 +390,26 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
               const SizedBox(height: 32),
               const _SectionTitle('Backup'),
               const BackupSection(),
-              const SizedBox(height: 32),
-              Text(
-                'Keys are stored in the Android keystore and never leave this '
-                'device except as request headers to the services above. '
-                'Yap has no server and collects nothing.',
-                style: theme.textTheme.bodySmall
-                    ?.copyWith(color: theme.colorScheme.onSurfaceVariant),
+              const SizedBox(height: 40),
+              Center(
+                child: Column(
+                  children: [
+                    const YapLogo(size: 52),
+                    const SizedBox(height: 10),
+                    Text('Yap', style: theme.textTheme.headlineSmall),
+                    const SizedBox(height: 6),
+                    const MotifDivider(width: 100),
+                    const SizedBox(height: 14),
+                    Text(
+                      'Keys are stored in the Android keystore and never leave '
+                      'this device except as request headers to the services '
+                      'above. Yap has no server and collects nothing.',
+                      textAlign: TextAlign.center,
+                      style: theme.textTheme.bodySmall
+                          ?.copyWith(color: theme.colorScheme.onSurfaceVariant),
+                    ),
+                  ],
+                ),
               ),
             ],
           );
